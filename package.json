@@ -9,6 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@farcaster/miniapp-sdk": "^0.2.1",
+    "@neynar/nodejs-sdk": "^3.110.0",
+    "@supabase/supabase-js": "^2.88.0",
+    "alchemy-sdk": "^3.6.5",
     "next": "16.0.10",
     "react": "19.2.1",
     "react-dom": "19.2.1"
