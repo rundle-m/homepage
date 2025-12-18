@@ -39,7 +39,7 @@ export function useProfile() {
       dark_mode: false,
       theme_color: 'violet',
       border_style: 'rounded-3xl',
-      showcase_nfts: [],
+      showcase_nfts: [], 
     };
   }
 

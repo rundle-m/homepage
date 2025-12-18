@@ -4,12 +4,10 @@ import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
 import { ProjectList } from '../components/ProjectList';
-import { ThemePicker } from '../components/ThemePicker'; // Ensure you created this file! 
-import { Grid } from '../components/Grid';
+import { ThemePicker } from '../components/ThemePicker';
+import { Grid } from '../components/Grid'; // Make sure this matches your file name!
 import type { Link, ShowcaseNFT } from '../types/types';
 
-
-// This map handles the color logic
 const THEME_MAP: Record<string, string> = {
   violet: 'from-violet-600 to-indigo-600',
   blue: 'from-blue-500 to-cyan-500',
@@ -23,7 +21,6 @@ export default function Home() {
   const { profile, isLoading, isOwner, isLoggingIn, login, updateProfile } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
 
-  // 1. Loading State
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 text-stone-400">
@@ -34,52 +31,62 @@ export default function Home() {
     );
   }
 
-  // 2. Login Screen (Fallback logic)
   if (!profile) {
     return <LoginScreen onLogin={login} isLoggingIn={isLoggingIn} />;
   }
 
-  // 3. Determine Dynamic Styles
-  // If theme is missing, default to 'violet'. If border is missing, default to 'rounded-3xl'
   const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
   const borderStyle = profile.border_style || 'rounded-3xl';
 
   return (
     <div className={`min-h-screen pb-20 ${profile.dark_mode ? 'bg-stone-950 text-white' : 'bg-stone-50 text-stone-900'}`}>
        
-       {/* HEADER - Uses dynamic gradient */}
-       <div className={`h-40 bg-gradient-to-r ${themeGradient} relative transition-all duration-500`}>
+       {/* HEADER - Now supports Banners! */}
+       <div className={`h-40 relative group overflow-hidden`}>
+          {/* 1. Background Layer */}
+          <div className={`absolute inset-0 bg-gradient-to-r ${themeGradient} transition-all duration-500`} />
+          
+          {/* 2. Image Layer (if banner exists) */}
+          {profile.banner_url && (
+            <img 
+              src={profile.banner_url} 
+              alt="Banner" 
+              className="absolute inset-0 w-full h-full object-cover opacity-90"
+            />
+          )}
+
+          {/* 3. Edit Button */}
           {isOwner && !isEditing && (
              <button 
                onClick={() => setIsEditing(true)} 
-               className="absolute top-4 right-4 bg-black/20 text-white px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-md hover:bg-black/30 transition"
+               className="absolute top-4 right-4 bg-black/40 text-white px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-md hover:bg-black/60 transition border border-white/10"
              >
-               Edit Theme
+               Edit Profile
              </button>
           )}
        </div>
 
-       {/* PROFILE CARD - Uses dynamic border */}
+       {/* PROFILE CARD */}
        <div className="px-6 relative -mt-16 text-center">
           <img 
             src={profile.pfp_url} 
             alt={profile.username}
-            className={`w-32 h-32 mx-auto border-4 border-white shadow-xl bg-stone-200 object-cover ${borderStyle}`} 
+            className={`w-32 h-32 mx-auto border-4 border-white dark:border-stone-900 shadow-xl bg-stone-200 object-cover ${borderStyle}`} 
           />
           <h1 className="text-2xl font-black mt-4">{profile.display_name}</h1>
           <p className="text-stone-500">@{profile.username}</p>
           <p className="mt-2 text-sm opacity-80 max-w-xs mx-auto">{profile.bio}</p>
        </div>
 
-      {/* NEW: NFT GALLERY */}
+       {/* NFT GALLERY (Grid) */}
        <Grid 
-          nfts={profile.showcase_nfts || []}
-          isOwner={isOwner}
-          onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNFTs })}
-          borderStyle={profile.border_style || 'rounded-3xl'}
+         nfts={profile.showcase_nfts || []}
+         isOwner={isOwner}
+         onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNFTs })}
+         borderStyle={borderStyle}
        />
 
-       {/* PROJECTS SECTION */}
+       {/* PROJECTS */}
        <ProjectList 
           links={profile.custom_links || []} 
           isOwner={isOwner} 
@@ -89,7 +96,7 @@ export default function Home() {
        {/* FOOTER */}
        <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800">
          <p className="text-stone-300 text-xs font-mono uppercase tracking-widest">
-           Onchain Home v2.2
+           Onchain Home v2.3
          </p>
        </div>
 
@@ -97,16 +104,14 @@ export default function Home() {
        {isEditing && (
           <div className="fixed inset-0 bg-white dark:bg-stone-900 z-50 flex flex-col animate-in slide-in-from-bottom-10">
              
-             {/* Edit Header */}
              <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
                 <h2 className="text-xl font-bold">Customize Look</h2>
-                <button onClick={() => setIsEditing(false)} className="text-stone-400 hover:text-stone-900 dark:hover:text-white">Done</button>
+                <button onClick={() => setIsEditing(false)} className="text-stone-400 hover:text-stone-900 dark:hover:text-white font-bold">Done</button>
              </div>
              
-             {/* Edit Body - Scrollable */}
              <div className="p-6 space-y-8 overflow-y-auto flex-1">
                 
-                {/* 1. THEME PICKER COMPONENT */}
+                {/* 1. Theme Picker */}
                 <ThemePicker 
                   currentTheme={profile.theme_color || 'violet'}
                   currentBorder={profile.border_style || 'rounded-3xl'}
@@ -115,8 +120,20 @@ export default function Home() {
 
                 <hr className="border-stone-100 dark:border-stone-800" />
 
-                {/* 2. TEXT FIELDS */}
+                {/* 2. Text Fields */}
                 <div className="space-y-4">
+                    {/* NEW: Banner URL Input */}
+                    <div>
+                      <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Banner Image URL</label>
+                      <input 
+                        value={profile.banner_url || ""} 
+                        onChange={e => updateProfile({ banner_url: e.target.value })} 
+                        placeholder="https://..."
+                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm" 
+                      />
+                      <p className="text-[10px] text-stone-400 mt-1">Paste an image link to replace the gradient header.</p>
+                    </div>
+
                     <div>
                       <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Display Name</label>
                       <input 
