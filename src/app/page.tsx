@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
 import { ProjectList } from '../components/ProjectList';
-import { ThemePicker } from '../components/ThemePicker'; // Ensure you created this file!
-import { NFTGrid } from '../components/nftGrid'; 
-import type { Link, ShowcaseNFT } from '../types/types';
+import { ThemePicker } from '../components/ThemePicker'; // Ensure you created this file! 
+import type { Link } from '../types/types';
 
 
 // This map handles the color logic
@@ -70,14 +69,6 @@ export default function Home() {
           <p className="text-stone-500">@{profile.username}</p>
           <p className="mt-2 text-sm opacity-80 max-w-xs mx-auto">{profile.bio}</p>
        </div>
-
-      {/* NEW: NFT GALLERY */}
-      <NFTGrid
-        nfts={profile.showcase_nfts || []}
-        isOwner={isOwner}
-        onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNFTs })}
-        borderStyle={profile.border_style || 'rounded-3xl'}
-        />
 
        {/* PROJECTS SECTION */}
        <ProjectList 
