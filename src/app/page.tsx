@@ -61,6 +61,15 @@ export default function Home() {
           onUpdate={(newLinks: Link[]) => updateProfile({ custom_links: newLinks })} 
        />
 
+       {/* NEW FOOTER: Kicks Vercel & Shows Version */}
+       <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800">
+         <p className="text-stone-300 text-xs font-mono uppercase tracking-widest">
+           Onchain Home v2.1
+         </p>
+       </div>
+
+       
+
        {/* EDIT OVERLAY */}
        {isEditing && (
           <div className="fixed inset-0 bg-white dark:bg-stone-900 z-50 p-6 flex flex-col">
