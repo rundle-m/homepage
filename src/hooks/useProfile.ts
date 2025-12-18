@@ -16,12 +16,7 @@ export function useProfile() {
       
       if (context?.user?.fid) {
         console.log("📱 Phone detected. FID:", context.user.fid);
-        // PASS THE PFP URL HERE 👇
-        await fetchProfile(
-          context.user.fid, 
-          context.user.username, 
-          context.user.pfpUrl
-        );
+        await fetchProfile(context.user.fid, context.user.username, context.user.pfpUrl);
       } else {
         console.log("💻 Localhost detected.");
         await fetchProfile(1, "developer");
@@ -31,14 +26,13 @@ export function useProfile() {
     init();
   }, []);
 
-  // Updated to accept pfpUrl
   function createMockProfile(fid: number, username?: string, pfpUrl?: string): Profile {
     return {
       fid: fid,
       username: username || `user-${fid}`,
       display_name: username || `User #${fid}`,
-      // Use real PFP if available, otherwise fallback to placeholder
       pfp_url: pfpUrl || `https://placehold.co/400x400/purple/white?text=${fid}`,
+      banner_url: "",
       bio: 'Onchain Explorer',
       custody_address: "", 
       custom_links: [],
@@ -52,21 +46,23 @@ export function useProfile() {
   async function fetchProfile(fid: number, username?: string, pfpUrl?: string) {
     setIsLoading(true);
     try {
+      // FIX 1: Query 'id' instead of 'fid'
       const { data } = await supabase
         .from('profiles')
         .select('*')
-        .eq('fid', fid)
+        .eq('id', fid) 
         .single();
 
       if (data) {
-        // If we have a fresh PFP from Farcaster, update the one in memory!
-        // This ensures your picture is always up to date.
-        const mergedProfile = {
+        // Map Database 'id' back to Frontend 'fid'
+        const mappedProfile = {
             ...data,
-            pfp_url: pfpUrl || data.pfp_url // Prefer fresh PFP
+            fid: data.id, // IMPORTANT: The DB calls it 'id', app calls it 'fid'
+            // Ensure we prioritize fresh PFP from Farcaster if available
+            pfp_url: pfpUrl || data.pfp_url 
         } as Profile;
         
-        setProfile(mergedProfile);
+        setProfile(mappedProfile);
       } else {
         console.log("User not in DB. Creating fresh profile.");
         setProfile(createMockProfile(fid, username, pfpUrl));
@@ -89,10 +85,11 @@ export function useProfile() {
     if (!profile) return;
     setProfile({ ...profile, ...updates });
 
+    // FIX 2: Use 'id' for the upsert
     const { error } = await supabase
       .from('profiles')
       .upsert({ 
-        fid: profile.fid,
+        id: profile.fid, // <--- MAP FID TO ID HERE
         username: profile.username,
         display_name: profile.display_name,
         pfp_url: profile.pfp_url,
@@ -100,6 +97,9 @@ export function useProfile() {
         custody_address: profile.custody_address,
         theme_color: profile.theme_color,
         border_style: profile.border_style,
+        banner_url: profile.banner_url,
+        showcase_nfts: profile.showcase_nfts,
+        // Map updates as well
         ...updates 
       })
       .select();
