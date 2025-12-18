@@ -75,7 +75,7 @@ export default function Home() {
       <NFTGrid
         nfts={profile.showcase_nfts || []}
         isOwner={isOwner}
-        onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNfts })}
+        onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNFTs })}
         borderStyle={profile.border_style || 'rounded-3xl'}
         />
 
