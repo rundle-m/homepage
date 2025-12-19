@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
 import { ProjectList } from '../components/ProjectList';
@@ -208,5 +208,14 @@ function AppContent() {
           </div>
        )}
     </div>
+  );
+}
+
+// 2. The Exported Suspense Wrapper (This is now OUTSIDE AppContent)
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppContent />
+    </Suspense>
   );
 }
