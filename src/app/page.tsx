@@ -18,7 +18,7 @@ const THEME_MAP: Record<string, string> = {
   stone: 'from-stone-600 to-stone-800',
 };
 
-function AppContent() {
+export default function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, isLoggingIn, 
     login, createAccount, updateProfile, switchToMyProfile,
