@@ -5,7 +5,7 @@ import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
 import { ProjectList } from '../components/ProjectList';
 import { ThemePicker } from '../components/ThemePicker';
-import { Grid } from '../components/Grid'; // Make sure this matches your file name!
+import { Grid } from '../components/Grid'; 
 import { LandingPage } from '../components/LandingPage';
 import type { Link, ShowcaseNFT } from '../types/types';
 
@@ -20,20 +20,13 @@ const THEME_MAP: Record<string, string> = {
 
 export default function Home() {
   const { 
-    profile, 
-    remoteUser, 
-    isLoading, 
-    isOwner, 
-    isLoggingIn, 
-    login, 
-    createAccount, 
-    updateProfile,
-    switchToMyProfile 
+    profile, remoteUser, isLoading, isOwner, isLoggingIn, 
+    login, createAccount, updateProfile, switchToMyProfile 
   } = useProfile();
   
   const [isEditing, setIsEditing] = useState(false);
 
-// NEW: Helper to Share
+  // NEW: Helper to Share
   const handleShare = () => {
     if (!profile) return;
     // Construct the Deep Link
@@ -44,7 +37,6 @@ export default function Home() {
     window.open(warpcastUrl, '_blank');
   };
 
-  // 1. Loading State
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 text-stone-400">
@@ -56,11 +48,6 @@ export default function Home() {
     );
   }
 
-  // 2. LANDING PAGE LOGIC
-  // We only show the Landing Page if:
-  // a) No profile exists yet (!profile)
-  // b) We found a potential user (remoteUser)
-  // c) The person viewing is the person who owns the phone (isOwner)
   if (!profile && remoteUser && isOwner) {
     return (
       <LandingPage 
@@ -72,13 +59,10 @@ export default function Home() {
     );
   }
 
-  // 3. MANUAL LOGIN (Fallback for Localhost or if logic fails)
   if (!profile) {
-    // Note: We pass a dummy 'user' string for localhost testing
     return <LoginScreen onLogin={(fid) => login(fid, 'user', '')} isLoggingIn={isLoggingIn} />;
   }
 
-  // 4. MAIN DASHBOARD
   const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
   const borderStyle = profile.border_style || 'rounded-3xl';
 
@@ -87,19 +71,10 @@ export default function Home() {
        
        {/* HEADER */}
        <div className={`h-40 relative group overflow-hidden`}>
-          {/* Background Gradient */}
           <div className={`absolute inset-0 bg-gradient-to-r ${themeGradient} transition-all duration-500`} />
-          
-          {/* Banner Image (if exists) */}
           {profile.banner_url && (
-            <img 
-              src={profile.banner_url} 
-              alt="Banner" 
-              className="absolute inset-0 w-full h-full object-cover opacity-90"
-            />
+            <img src={profile.banner_url} alt="Banner" className="absolute inset-0 w-full h-full object-cover opacity-90"/>
           )}
-
-          {/* Edit Button (Only visible if you own this page) */}
           {isOwner && !isEditing && (
              <button 
                onClick={() => setIsEditing(true)} 
@@ -122,82 +97,83 @@ export default function Home() {
           <p className="mt-2 text-sm opacity-80 max-w-xs mx-auto">{profile.bio}</p>
        </div>
 
-       {/* NFT GALLERY */}
+       {/* CONTENT */}
        <Grid 
          nfts={profile.showcase_nfts || []}
          isOwner={isOwner}
          onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNFTs })}
          borderStyle={borderStyle}
        />
-
-       {/* PROJECTS LIST */}
        <ProjectList 
           links={profile.custom_links || []} 
           isOwner={isOwner}
           onUpdate={(newLinks: Link[]) => updateProfile({ custom_links: newLinks })} 
        />
 
-       {/* VISITOR CTA (Only visible if you are NOT the owner) */}
-       {!isOwner && (
-         <div className="fixed bottom-6 left-0 right-0 px-6 z-40">
-           <button 
-             onClick={switchToMyProfile}
-             className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-violet-200/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-           >
-             ✨ Create Your Own Space
-           </button>
-         </div>
-       )}
+       {/* CTA BUTTONS (Floating at Bottom) */}
+       <div className="fixed bottom-6 left-0 right-0 px-6 z-40 pointer-events-none">
+          <div className="pointer-events-auto">
+            
+            {/* 1. VISITOR: Create Your Own */}
+            {!isOwner && (
+               <button 
+                 onClick={switchToMyProfile}
+                 className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-violet-200/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+               >
+                 ✨ Create Your Own Space
+               </button>
+            )}
 
-       {/* FOOTER */}
-       <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800 pb-24">
+            {/* 2. OWNER: Share Button */}
+            {isOwner && (
+               <button 
+                 onClick={handleShare}
+                 className="w-full py-4 bg-white dark:bg-stone-800 text-stone-900 dark:text-white border border-stone-200 dark:border-stone-700 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+               >
+                 📤 Share Profile
+               </button>
+            )}
+
+          </div>
+       </div>
+
+       {/* FOOTER PADDING */}
+       <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800 pb-32">
          <p className="text-stone-300 text-xs font-mono uppercase tracking-widest">
-           Onchain Home v2.4
+           Onchain Home v2.5
          </p>
        </div>
 
        {/* EDIT OVERLAY */}
        {isEditing && (
           <div className="fixed inset-0 bg-white dark:bg-stone-900 z-50 flex flex-col animate-in slide-in-from-bottom-10">
-             
-             {/* Edit Header */}
              <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
                 <h2 className="text-xl font-bold">Customize Look</h2>
                 <button onClick={() => setIsEditing(false)} className="text-stone-400 hover:text-stone-900 dark:hover:text-white font-bold">Done</button>
              </div>
-             
-             {/* Edit Body */}
              <div className="p-6 space-y-8 overflow-y-auto flex-1">
-                
-                {/* 1. Theme Picker */}
                 <ThemePicker 
                   currentTheme={profile.theme_color || 'violet'}
                   currentBorder={profile.border_style || 'rounded-3xl'}
                   onUpdate={updateProfile}
                 />
-
                 <hr className="border-stone-100 dark:border-stone-800" />
-
-                {/* 2. Text Fields */}
                 <div className="space-y-4">
-                    {/* Banner Input */}
                     <div>
                       <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Banner Image URL</label>
                       <input 
                         value={profile.banner_url || ""} 
                         onChange={e => updateProfile({ banner_url: e.target.value })} 
                         placeholder="https://..."
-                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm" 
+                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none" 
                       />
-                      <p className="text-[10px] text-stone-400 mt-1">Paste an image link to replace the gradient header.</p>
                     </div>
-
                     <div>
                       <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Display Name</label>
                       <input 
                         value={profile.display_name} 
                         onChange={e => updateProfile({ display_name: e.target.value })} 
-                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-purple-500" 
+                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none" 
                       />
                     </div>
                     <div>
@@ -205,7 +181,7 @@ export default function Home() {
                       <textarea 
                         value={profile.bio} 
                         onChange={e => updateProfile({ bio: e.target.value })} 
-                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl h-24 outline-none resize-none focus:ring-2 focus:ring-purple-500" 
+                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl h-24 outline-none resize-none" 
                       />
                     </div>
                  </div>
