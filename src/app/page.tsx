@@ -32,7 +32,7 @@ function AppContent() {
     if (!profile) return;
     
     // ⚠️ REPLACE THIS WITH YOUR ACTUAL VERCEL URL
-    const baseUrl = "https://YOUR-APP-NAME.vercel.app"; 
+    const baseUrl = "https://homepage-beta-henna-99.vercel.app/"; 
     
     const shareUrl = `${baseUrl}?fid=${profile.fid}`;
     const text = `Check out my Onchain Home! 🏠`;
