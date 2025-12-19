@@ -33,6 +33,17 @@ export default function Home() {
   
   const [isEditing, setIsEditing] = useState(false);
 
+// NEW: Helper to Share
+  const handleShare = () => {
+    if (!profile) return;
+    // Construct the Deep Link
+    const shareUrl = `${window.location.origin}?fid=${profile.fid}`;
+    const text = `Check out my Onchain Home! 🏠`;
+    // Open Warpcast Intent
+    const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
+    window.open(warpcastUrl, '_blank');
+  };
+
   // 1. Loading State
   if (isLoading) {
     return (

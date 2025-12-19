@@ -18,19 +18,17 @@ export function useProfile() {
       const context = await sdk.context;
       const viewerFid = context?.user?.fid;
       
-      // Check URL parameters for ?fid=123
       const params = new URLSearchParams(window.location.search);
       const urlFid = params.get('fid');
 
       if (urlFid) {
-        // SCENARIO A: Viewing someone else via Link
+        // VIEWING SOMEONE ELSE
         const targetFid = parseInt(urlFid);
-        console.log(`🔗 Link detected. Viewing FID: ${targetFid} (Viewer: ${viewerFid})`);
-        
+        console.log(`🔗 Viewing Target FID: ${targetFid}`);
         await fetchProfileOnly(targetFid);
-        
         setIsOwner(viewerFid === targetFid);
         
+        // Save viewer info for onboarding
         if (viewerFid && context?.user) {
              setRemoteUser({ 
                 fid: viewerFid, 
@@ -38,10 +36,9 @@ export function useProfile() {
                 pfp_url: context.user.pfpUrl || '' 
              });
         }
-
       } else if (viewerFid) {
-        // SCENARIO B: Viewing Self
-        console.log("📱 Phone detected. Viewing Self:", viewerFid);
+        // VIEWING SELF
+        console.log("📱 Viewing Self FID:", viewerFid);
         setIsOwner(true);
         await checkAccountStatus(
             viewerFid, 
@@ -49,8 +46,8 @@ export function useProfile() {
             context.user.pfpUrl || ''
         );
       } else {
-        // SCENARIO C: Localhost
-        console.log("💻 Localhost detected.");
+        // LOCALHOST
+        console.log("💻 Localhost.");
         setIsOwner(true);
         setIsLoading(false);
       }
@@ -59,7 +56,6 @@ export function useProfile() {
     init();
   }, []);
 
-  // 1. Check if account exists, if not prepare for onboarding
   async function checkAccountStatus(fid: number, username: string, pfpUrl: string) {
     setIsLoading(true);
     try {
@@ -68,44 +64,33 @@ export function useProfile() {
       if (data) {
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
-        console.log("User not in DB. Ready to onboard.");
-        setRemoteUser({ 
-            fid, 
-            username, 
-            pfp_url: pfpUrl || `https://placehold.co/400x400/purple/white?text=${fid}` 
-        });
+        console.log("User not in DB.");
+        setRemoteUser({ fid, username, pfp_url: pfpUrl });
         setProfile(null);
       }
     } catch (err) { console.error(err); } 
     finally { setIsLoading(false); }
   }
 
-  // 2. Just fetch data (used for viewing others)
   async function fetchProfileOnly(fid: number) {
     setIsLoading(true);
     try {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
-      if (data) {
-        setProfile(mapDataToProfile(data));
-      }
+      if (data) setProfile(mapDataToProfile(data));
     } catch (err) { console.error(err); } 
     finally { setIsLoading(false); }
   }
 
-  // Helper to format DB data
   function mapDataToProfile(data: any, freshPfp?: string): Profile {
-      return {
-          ...data,
-          fid: data.id,
-          pfp_url: freshPfp || data.pfp_url
-      } as Profile;
+      return { ...data, fid: data.id, pfp_url: freshPfp || data.pfp_url } as Profile;
   }
 
-  // 3. Create Account (Onboarding)
+  // --- UPDATED CREATE FUNCTION ---
   const createAccount = async () => {
     if (!remoteUser) return;
     setIsLoggingIn(true);
     
+    // 1. Create the Object
     const newProfile: Profile = {
       fid: remoteUser.fid,
       username: remoteUser.username,
@@ -117,19 +102,29 @@ export function useProfile() {
       dark_mode: false, theme_color: 'violet', border_style: 'rounded-3xl',
     };
 
+    // 2. Try minimal insert first (Safer)
+    console.log("Attempting to create user:", newProfile.fid);
+    
     const { error } = await supabase.from('profiles').upsert({
         id: newProfile.fid,
         username: newProfile.username,
         display_name: newProfile.display_name,
         pfp_url: newProfile.pfp_url,
-        bio: newProfile.bio,
-        custody_address: newProfile.custody_address,
-        theme_color: newProfile.theme_color,
-        border_style: newProfile.border_style,
-        banner_url: "", showcase_nfts: []
+        // We include these defaults to prevent null errors
+        custom_links: [],
+        showcase_nfts: []
     });
 
-    if (!error) setProfile(newProfile);
+    if (error) {
+        // 🚨 ALERT THE USER ON FAILURE
+        console.error("Supabase Error:", error);
+        alert(`Creation Failed: ${error.message}\nCode: ${error.code}`);
+    } else {
+        // Success
+        console.log("User created!");
+        setProfile(newProfile);
+    }
+    
     setIsLoggingIn(false);
   };
 
@@ -151,23 +146,13 @@ export function useProfile() {
     });
   };
 
-  // 4. Helper to switch from Visitor -> Owner
   const switchToMyProfile = () => {
-      // Clear URL params and reload
       window.history.replaceState({}, '', window.location.pathname);
       window.location.reload();
   };
 
   return { 
-      profile, 
-      remoteUser, 
-      isLoading, 
-      isOwner, 
-      isLoggingIn, 
-      // Aliasing checkAccountStatus as 'login' to match page.tsx expectations
-      login: checkAccountStatus, 
-      createAccount, 
-      updateProfile,
-      switchToMyProfile 
+      profile, remoteUser, isLoading, isOwner, isLoggingIn, 
+      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile 
   };
 }
