@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
 import { ProjectList } from '../components/ProjectList';
@@ -18,7 +18,8 @@ const THEME_MAP: Record<string, string> = {
   stone: 'from-stone-600 to-stone-800',
 };
 
-export default function Home() {
+// 1. Main Content Component (Renamed from Home)
+function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, isLoggingIn, 
     login, createAccount, updateProfile, switchToMyProfile 
@@ -26,13 +27,11 @@ export default function Home() {
   
   const [isEditing, setIsEditing] = useState(false);
 
-  // NEW: Helper to Share
+  // Helper to Share
   const handleShare = () => {
     if (!profile) return;
-    // Construct the Deep Link
     const shareUrl = `${window.location.origin}?fid=${profile.fid}`;
     const text = `Check out my Onchain Home! 🏠`;
-    // Open Warpcast Intent
     const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
     window.open(warpcastUrl, '_blank');
   };
@@ -189,5 +188,14 @@ export default function Home() {
           </div>
        )}
     </div>
+  );
+}
+
+// 2. The Exported Suspense Wrapper (This is now OUTSIDE AppContent)
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppContent />
+    </Suspense>
   );
 }

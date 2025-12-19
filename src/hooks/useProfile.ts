@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation'; // 👈 NEW IMPORT
 import sdk from "@farcaster/frame-sdk";
 import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
@@ -11,34 +12,33 @@ export function useProfile() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
 
+  // 1. Get URL Params via Next.js Hook (More reliable)
+  const searchParams = useSearchParams();
+  const urlFid = searchParams.get('fid');
+
   useEffect(() => {
     const init = async () => {
-      // 1. Initialize SDK
       try { await sdk.actions.ready(); } catch (e) { console.error(e); }
       const context = await sdk.context;
       const viewerFid = context?.user?.fid;
 
-      // 2. CHECK URL PARAMS FIRST (Priority 1)
-      // We use 'window.location.href' parsing to be safe across all browsers
-      const url = new URL(window.location.href);
-      const urlFid = url.searchParams.get('fid');
-
+      // 2. LOGIC: Check URL Param vs Viewer ID
       if (urlFid) {
         // --- VISITOR MODE ---
         const targetFid = parseInt(urlFid);
-        console.log(`🔗 Link Detected! Target: ${targetFid}, Viewer: ${viewerFid}`);
+        console.log(`🔗 Link Detected via Hook! Target: ${targetFid}, Viewer: ${viewerFid}`);
         
         // Fetch the profile of the person in the link
         await fetchProfileOnly(targetFid);
         
-        // Determine if I am looking at myself
+        // Am I looking at myself?
         if (viewerFid && viewerFid === targetFid) {
            setIsOwner(true);
         } else {
            setIsOwner(false); 
         }
 
-        // Store viewer info in background (for the "Create" button later)
+        // Store viewer info (for the "Create" button)
         if (viewerFid && context?.user) {
              setRemoteUser({ 
                 fid: viewerFid, 
@@ -65,9 +65,9 @@ export function useProfile() {
     };
 
     init();
-  }, []);
+  }, [urlFid]); // 👈 Re-run if URL changes
 
-  // --- HELPERS (Same as before) ---
+  // --- HELPERS ---
 
   async function checkAccountStatus(fid: number, username: string, pfpUrl: string) {
     setIsLoading(true);
@@ -93,7 +93,7 @@ export function useProfile() {
         setProfile(mapDataToProfile(data));
       } else {
         console.error("Link target not found in DB");
-        setProfile(null); // This might cause a fallback to landing page if target is invalid
+        setProfile(null); 
       }
     } catch (err) { console.error(err); } 
     finally { setIsLoading(false); }
@@ -134,7 +134,7 @@ export function useProfile() {
         alert(`Creation Failed: ${error.message}`);
     } else {
         setProfile(newProfile);
-        // Important: Remove the ?fid param if we just created our own account
+        // Clear the URL param so we are now "Home"
         window.history.replaceState({}, '', window.location.pathname);
     }
     
