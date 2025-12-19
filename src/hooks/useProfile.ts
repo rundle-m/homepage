@@ -5,91 +5,139 @@ import { supabase } from '../lib/supabaseClient';
 
 export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [remoteUser, setRemoteUser] = useState<{ fid: number, username: string, pfp_url: string } | null>(null);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     const init = async () => {
       try { await sdk.actions.ready(); } catch (e) { console.error(e); }
 
       const context = await sdk.context;
+      const viewerFid = context?.user?.fid;
       
-      if (context?.user?.fid) {
-        console.log("📱 Phone detected. FID:", context.user.fid);
-        await fetchProfile(context.user.fid, context.user.username, context.user.pfpUrl);
+      // Check URL parameters for ?fid=123
+      const params = new URLSearchParams(window.location.search);
+      const urlFid = params.get('fid');
+
+      if (urlFid) {
+        // SCENARIO A: Viewing someone else via Link
+        const targetFid = parseInt(urlFid);
+        console.log(`🔗 Link detected. Viewing FID: ${targetFid} (Viewer: ${viewerFid})`);
+        
+        await fetchProfileOnly(targetFid);
+        
+        setIsOwner(viewerFid === targetFid);
+        
+        if (viewerFid && context?.user) {
+             setRemoteUser({ 
+                fid: viewerFid, 
+                username: context.user.username || 'unknown', 
+                pfp_url: context.user.pfpUrl || '' 
+             });
+        }
+
+      } else if (viewerFid) {
+        // SCENARIO B: Viewing Self
+        console.log("📱 Phone detected. Viewing Self:", viewerFid);
+        setIsOwner(true);
+        await checkAccountStatus(
+            viewerFid, 
+            context.user.username || 'unknown', 
+            context.user.pfpUrl || ''
+        );
       } else {
+        // SCENARIO C: Localhost
         console.log("💻 Localhost detected.");
-        await fetchProfile(1, "developer");
+        setIsOwner(true);
+        setIsLoading(false);
       }
     };
 
     init();
   }, []);
 
-  function createMockProfile(fid: number, username?: string, pfpUrl?: string): Profile {
-    return {
-      fid: fid,
-      username: username || `user-${fid}`,
-      display_name: username || `User #${fid}`,
-      pfp_url: pfpUrl || `https://placehold.co/400x400/purple/white?text=${fid}`,
-      banner_url: "",
-      bio: 'Onchain Explorer',
-      custody_address: "", 
-      custom_links: [],
-      dark_mode: false,
-      theme_color: 'violet',
-      border_style: 'rounded-3xl',
-      showcase_nfts: [], 
-    };
-  }
-
-  async function fetchProfile(fid: number, username?: string, pfpUrl?: string) {
+  // 1. Check if account exists, if not prepare for onboarding
+  async function checkAccountStatus(fid: number, username: string, pfpUrl: string) {
     setIsLoading(true);
     try {
-      // FIX 1: Query 'id' instead of 'fid'
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', fid) 
-        .single();
+      const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
 
       if (data) {
-        // Map Database 'id' back to Frontend 'fid'
-        const mappedProfile = {
-            ...data,
-            fid: data.id, // IMPORTANT: The DB calls it 'id', app calls it 'fid'
-            // Ensure we prioritize fresh PFP from Farcaster if available
-            pfp_url: pfpUrl || data.pfp_url 
-        } as Profile;
-        
-        setProfile(mappedProfile);
+        setProfile(mapDataToProfile(data, pfpUrl));
       } else {
-        console.log("User not in DB. Creating fresh profile.");
-        setProfile(createMockProfile(fid, username, pfpUrl));
+        console.log("User not in DB. Ready to onboard.");
+        setRemoteUser({ 
+            fid, 
+            username, 
+            pfp_url: pfpUrl || `https://placehold.co/400x400/purple/white?text=${fid}` 
+        });
+        setProfile(null);
       }
-    } catch (err) {
-      console.error('Login error:', err);
-      setProfile(createMockProfile(fid, username, pfpUrl));
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err) { console.error(err); } 
+    finally { setIsLoading(false); }
   }
 
-  const login = async (fid: number) => {
+  // 2. Just fetch data (used for viewing others)
+  async function fetchProfileOnly(fid: number) {
+    setIsLoading(true);
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
+      if (data) {
+        setProfile(mapDataToProfile(data));
+      }
+    } catch (err) { console.error(err); } 
+    finally { setIsLoading(false); }
+  }
+
+  // Helper to format DB data
+  function mapDataToProfile(data: any, freshPfp?: string): Profile {
+      return {
+          ...data,
+          fid: data.id,
+          pfp_url: freshPfp || data.pfp_url
+      } as Profile;
+  }
+
+  // 3. Create Account (Onboarding)
+  const createAccount = async () => {
+    if (!remoteUser) return;
     setIsLoggingIn(true);
-    await fetchProfile(fid);
+    
+    const newProfile: Profile = {
+      fid: remoteUser.fid,
+      username: remoteUser.username,
+      display_name: remoteUser.username,
+      pfp_url: remoteUser.pfp_url,
+      banner_url: "",
+      bio: 'Onchain Explorer',
+      custody_address: "", custom_links: [], showcase_nfts: [],
+      dark_mode: false, theme_color: 'violet', border_style: 'rounded-3xl',
+    };
+
+    const { error } = await supabase.from('profiles').upsert({
+        id: newProfile.fid,
+        username: newProfile.username,
+        display_name: newProfile.display_name,
+        pfp_url: newProfile.pfp_url,
+        bio: newProfile.bio,
+        custody_address: newProfile.custody_address,
+        theme_color: newProfile.theme_color,
+        border_style: newProfile.border_style,
+        banner_url: "", showcase_nfts: []
+    });
+
+    if (!error) setProfile(newProfile);
     setIsLoggingIn(false);
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!profile) return;
     setProfile({ ...profile, ...updates });
-
-    // FIX 2: Use 'id' for the upsert
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({ 
-        id: profile.fid, // <--- MAP FID TO ID HERE
+    await supabase.from('profiles').upsert({ 
+        id: profile.fid, 
         username: profile.username,
         display_name: profile.display_name,
         pfp_url: profile.pfp_url,
@@ -99,13 +147,27 @@ export function useProfile() {
         border_style: profile.border_style,
         banner_url: profile.banner_url,
         showcase_nfts: profile.showcase_nfts,
-        // Map updates as well
         ...updates 
-      })
-      .select();
-
-    if (error) console.error("Error saving profile:", error);
+    });
   };
 
-  return { profile, isLoading, isOwner: true, isLoggingIn, login, updateProfile };
+  // 4. Helper to switch from Visitor -> Owner
+  const switchToMyProfile = () => {
+      // Clear URL params and reload
+      window.history.replaceState({}, '', window.location.pathname);
+      window.location.reload();
+  };
+
+  return { 
+      profile, 
+      remoteUser, 
+      isLoading, 
+      isOwner, 
+      isLoggingIn, 
+      // Aliasing checkAccountStatus as 'login' to match page.tsx expectations
+      login: checkAccountStatus, 
+      createAccount, 
+      updateProfile,
+      switchToMyProfile 
+  };
 }
