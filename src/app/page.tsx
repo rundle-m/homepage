@@ -1,5 +1,3 @@
-"use client";
-
 import type { Metadata, ResolvingMetadata } from 'next';
 
 type Props = {
