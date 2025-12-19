@@ -1,5 +1,3 @@
-"use client";
-
 interface LandingPageProps {
   username: string;
   pfpUrl: string;
