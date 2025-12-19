@@ -1,3 +1,5 @@
+"use client";
+
 interface ThemePickerProps {
   currentTheme: string;
   currentBorder: string;
