@@ -55,13 +55,14 @@ function AppContent() {
     );
   }
 
-  // Debug Bar Component
+  // --- UPDATED DEBUG BAR ---
+  // Shows the full window location so we can see if params exist
   const DebugBar = () => (
-      <div className="fixed top-0 left-0 right-0 bg-black text-white text-[10px] p-1 z-50 text-center font-mono opacity-80 pointer-events-none">
-        DEBUG: {debugLog} | Owner: {isOwner ? 'YES' : 'NO'} | Profile: {profile ? 'YES' : 'NO'}
+      <div className="fixed top-0 left-0 right-0 bg-black/90 text-white text-[10px] p-2 z-50 text-center font-mono overflow-x-auto whitespace-nowrap">
+        <strong>URL:</strong> {typeof window !== 'undefined' ? window.location.href : 'SSR'} <br/>
+        <strong>Log:</strong> {debugLog}
       </div>
   );
-
   if (!profile && remoteUser && isOwner) {
     return (
       <>
