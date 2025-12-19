@@ -13,22 +13,32 @@ export function useProfile() {
 
   useEffect(() => {
     const init = async () => {
+      // 1. Initialize SDK
       try { await sdk.actions.ready(); } catch (e) { console.error(e); }
-
       const context = await sdk.context;
       const viewerFid = context?.user?.fid;
-      
-      const params = new URLSearchParams(window.location.search);
-      const urlFid = params.get('fid');
+
+      // 2. CHECK URL PARAMS FIRST (Priority 1)
+      // We use 'window.location.href' parsing to be safe across all browsers
+      const url = new URL(window.location.href);
+      const urlFid = url.searchParams.get('fid');
 
       if (urlFid) {
-        // VIEWING SOMEONE ELSE
+        // --- VISITOR MODE ---
         const targetFid = parseInt(urlFid);
-        console.log(`🔗 Viewing Target FID: ${targetFid}`);
-        await fetchProfileOnly(targetFid);
-        setIsOwner(viewerFid === targetFid);
+        console.log(`🔗 Link Detected! Target: ${targetFid}, Viewer: ${viewerFid}`);
         
-        // Save viewer info for onboarding
+        // Fetch the profile of the person in the link
+        await fetchProfileOnly(targetFid);
+        
+        // Determine if I am looking at myself
+        if (viewerFid && viewerFid === targetFid) {
+           setIsOwner(true);
+        } else {
+           setIsOwner(false); 
+        }
+
+        // Store viewer info in background (for the "Create" button later)
         if (viewerFid && context?.user) {
              setRemoteUser({ 
                 fid: viewerFid, 
@@ -36,9 +46,10 @@ export function useProfile() {
                 pfp_url: context.user.pfpUrl || '' 
              });
         }
+
       } else if (viewerFid) {
-        // VIEWING SELF
-        console.log("📱 Viewing Self FID:", viewerFid);
+        // --- OWNER MODE (No Link) ---
+        console.log("📱 No Link. Loading Owner:", viewerFid);
         setIsOwner(true);
         await checkAccountStatus(
             viewerFid, 
@@ -46,8 +57,8 @@ export function useProfile() {
             context.user.pfpUrl || ''
         );
       } else {
-        // LOCALHOST
-        console.log("💻 Localhost.");
+        // --- LOCALHOST / FALLBACK ---
+        console.log("💻 Localhost / No User.");
         setIsOwner(true);
         setIsLoading(false);
       }
@@ -55,6 +66,8 @@ export function useProfile() {
 
     init();
   }, []);
+
+  // --- HELPERS (Same as before) ---
 
   async function checkAccountStatus(fid: number, username: string, pfpUrl: string) {
     setIsLoading(true);
@@ -64,7 +77,7 @@ export function useProfile() {
       if (data) {
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
-        console.log("User not in DB.");
+        console.log("User not in DB. Ready to onboard.");
         setRemoteUser({ fid, username, pfp_url: pfpUrl });
         setProfile(null);
       }
@@ -76,7 +89,12 @@ export function useProfile() {
     setIsLoading(true);
     try {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
-      if (data) setProfile(mapDataToProfile(data));
+      if (data) {
+        setProfile(mapDataToProfile(data));
+      } else {
+        console.error("Link target not found in DB");
+        setProfile(null); // This might cause a fallback to landing page if target is invalid
+      }
     } catch (err) { console.error(err); } 
     finally { setIsLoading(false); }
   }
@@ -85,12 +103,10 @@ export function useProfile() {
       return { ...data, fid: data.id, pfp_url: freshPfp || data.pfp_url } as Profile;
   }
 
-  // --- UPDATED CREATE FUNCTION ---
   const createAccount = async () => {
     if (!remoteUser) return;
     setIsLoggingIn(true);
     
-    // 1. Create the Object
     const newProfile: Profile = {
       fid: remoteUser.fid,
       username: remoteUser.username,
@@ -102,27 +118,24 @@ export function useProfile() {
       dark_mode: false, theme_color: 'violet', border_style: 'rounded-3xl',
     };
 
-    // 2. Try minimal insert first (Safer)
-    console.log("Attempting to create user:", newProfile.fid);
+    console.log("Creating user:", newProfile.fid);
     
     const { error } = await supabase.from('profiles').upsert({
         id: newProfile.fid,
         username: newProfile.username,
         display_name: newProfile.display_name,
         pfp_url: newProfile.pfp_url,
-        // We include these defaults to prevent null errors
         custom_links: [],
         showcase_nfts: []
     });
 
     if (error) {
-        // 🚨 ALERT THE USER ON FAILURE
         console.error("Supabase Error:", error);
-        alert(`Creation Failed: ${error.message}\nCode: ${error.code}`);
+        alert(`Creation Failed: ${error.message}`);
     } else {
-        // Success
-        console.log("User created!");
         setProfile(newProfile);
+        // Important: Remove the ?fid param if we just created our own account
+        window.history.replaceState({}, '', window.location.pathname);
     }
     
     setIsLoggingIn(false);
