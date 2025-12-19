@@ -1,20 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-// Your exact Vercel URL (I added https://)
+// Basic SEO Constants
 const APP_URL = "https://homepage-beta-henna-99.vercel.app";
+const APP_NAME = "Onchain Home";
+const APP_DESC = "My personal onchain corner of the internet.";
 
 export const metadata: Metadata = {
-  title: "My Onchain Home",
-  description: "Check out my onchain profile, projects, and assets.",
+  title: APP_NAME,
+  description: APP_DESC,
   openGraph: {
-    title: "My Onchain Home",
-    description: "My personal Mini-app showcase.",
-    url: APP_URL, // Points to the homepage
-    siteName: "Showcase V2",
+    title: APP_NAME,
+    description: APP_DESC,
+    url: APP_URL,
+    siteName: APP_NAME,
     images: [
       {
-        url: `${APP_URL}/opengraph-image.png`, // Points to public/opengraph-image.png
+        url: `${APP_URL}/opengraph-image.png`, 
         width: 1200, 
         height: 630,
         alt: "App Preview",
@@ -23,30 +25,16 @@ export const metadata: Metadata = {
     locale: "en_US",
     type: "website",
   },
-  other: {
-    // The "Launch Button" configuration
-    "fc:frame": JSON.stringify({
-      version: "next",
-      imageUrl: `${APP_URL}/opengraph-image.png`, // The image shown in the feed
-      button: {
-        title: "Launch App",
-        action: {
-          type: "launch_frame",
-          name: "Showcase V2",
-          url: APP_URL, // Where the app actually opens
-          splashImageUrl: `${APP_URL}/icon.png`, // Splash screen icon
-          splashBackgroundColor: "#f7f7f7",
-        },
-      },
-    }),
-  },
+  // ⚠️ CRITICAL: We removed the 'other' field with 'fc:frame/miniapp' from here.
+  // It is now handled dynamically in page.tsx!
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false,
+  // These settings prevent the app from zooming in when you tap an input field
+  userScalable: false, 
 };
 
 export default function RootLayout({
