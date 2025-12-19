@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from 'react';
+import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
 import { ProjectList } from '../components/ProjectList';
@@ -18,19 +18,23 @@ const THEME_MAP: Record<string, string> = {
   stone: 'from-stone-600 to-stone-800',
 };
 
-// 1. Main Content Component (Renamed from Home)
 function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-    login, createAccount, updateProfile, switchToMyProfile 
+    login, createAccount, updateProfile, switchToMyProfile,
+    debugLog // 👈 Get Debug Info
   } = useProfile();
   
   const [isEditing, setIsEditing] = useState(false);
 
-  // Helper to Share
+  // --- HARDCODED SHARE LINK ---
   const handleShare = () => {
     if (!profile) return;
-    const shareUrl = `${window.location.origin}?fid=${profile.fid}`;
+    
+    // ⚠️ REPLACE THIS WITH YOUR ACTUAL VERCEL URL
+    const baseUrl = "https://YOUR-APP-NAME.vercel.app"; 
+    
+    const shareUrl = `${baseUrl}?fid=${profile.fid}`;
     const text = `Check out my Onchain Home! 🏠`;
     const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
     window.open(warpcastUrl, '_blank');
@@ -39,6 +43,10 @@ function AppContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 text-stone-400">
+         {/* Show Debug even while loading */}
+         <div className="fixed top-0 left-0 right-0 bg-black text-white text-[10px] p-1 z-50 text-center font-mono">
+            DEBUG: {debugLog}
+         </div>
         <div className="animate-pulse flex flex-col items-center">
           <div className="h-12 w-12 bg-stone-200 rounded-full mb-4"></div>
           <p className="text-xs font-bold tracking-widest opacity-50">LOADING HOME</p>
@@ -47,19 +55,34 @@ function AppContent() {
     );
   }
 
+  // Debug Bar Component
+  const DebugBar = () => (
+      <div className="fixed top-0 left-0 right-0 bg-black text-white text-[10px] p-1 z-50 text-center font-mono opacity-80 pointer-events-none">
+        DEBUG: {debugLog} | Owner: {isOwner ? 'YES' : 'NO'} | Profile: {profile ? 'YES' : 'NO'}
+      </div>
+  );
+
   if (!profile && remoteUser && isOwner) {
     return (
-      <LandingPage 
-        username={remoteUser.username}
-        pfpUrl={remoteUser.pfp_url}
-        onCreate={createAccount}
-        isCreating={isLoggingIn}
-      />
+      <>
+        <DebugBar />
+        <LandingPage 
+          username={remoteUser.username}
+          pfpUrl={remoteUser.pfp_url}
+          onCreate={createAccount}
+          isCreating={isLoggingIn}
+        />
+      </>
     );
   }
 
   if (!profile) {
-    return <LoginScreen onLogin={(fid) => login(fid, 'user', '')} isLoggingIn={isLoggingIn} />;
+    return (
+        <>
+            <DebugBar />
+            <LoginScreen onLogin={(fid) => login(fid, 'user', '')} isLoggingIn={isLoggingIn} />
+        </>
+    );
   }
 
   const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
@@ -68,6 +91,9 @@ function AppContent() {
   return (
     <div className={`min-h-screen pb-20 ${profile.dark_mode ? 'bg-stone-950 text-white' : 'bg-stone-50 text-stone-900'}`}>
        
+       {/* 🕵️‍♂️ DEBUG STRIP */}
+       <DebugBar />
+
        {/* HEADER */}
        <div className={`h-40 relative group overflow-hidden`}>
           <div className={`absolute inset-0 bg-gradient-to-r ${themeGradient} transition-all duration-500`} />
@@ -109,11 +135,9 @@ function AppContent() {
           onUpdate={(newLinks: Link[]) => updateProfile({ custom_links: newLinks })} 
        />
 
-       {/* CTA BUTTONS (Floating at Bottom) */}
+       {/* CTA BUTTONS */}
        <div className="fixed bottom-6 left-0 right-0 px-6 z-40 pointer-events-none">
           <div className="pointer-events-auto">
-            
-            {/* 1. VISITOR: Create Your Own */}
             {!isOwner && (
                <button 
                  onClick={switchToMyProfile}
@@ -122,8 +146,6 @@ function AppContent() {
                  ✨ Create Your Own Space
                </button>
             )}
-
-            {/* 2. OWNER: Share Button */}
             {isOwner && (
                <button 
                  onClick={handleShare}
@@ -132,14 +154,12 @@ function AppContent() {
                  📤 Share Profile
                </button>
             )}
-
           </div>
        </div>
 
-       {/* FOOTER PADDING */}
        <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800 pb-32">
          <p className="text-stone-300 text-xs font-mono uppercase tracking-widest">
-           Onchain Home v2.5
+           Onchain Home v2.6
          </p>
        </div>
 
@@ -188,14 +208,5 @@ function AppContent() {
           </div>
        )}
     </div>
-  );
-}
-
-// 2. The Exported Suspense Wrapper (This is now OUTSIDE AppContent)
-export default function Home() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <AppContent />
-    </Suspense>
   );
 }

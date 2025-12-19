@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation'; // 👈 NEW IMPORT
+import { useSearchParams } from 'next/navigation'; 
 import sdk from "@farcaster/frame-sdk";
 import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
@@ -12,7 +12,9 @@ export function useProfile() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
 
-  // 1. Get URL Params via Next.js Hook (More reliable)
+  // Debug State
+  const [debugLog, setDebugLog] = useState("Initializing...");
+
   const searchParams = useSearchParams();
   const urlFid = searchParams.get('fid');
 
@@ -22,23 +24,19 @@ export function useProfile() {
       const context = await sdk.context;
       const viewerFid = context?.user?.fid;
 
-      // 2. LOGIC: Check URL Param vs Viewer ID
+      setDebugLog(`URL: ${urlFid || 'none'} | Viewer: ${viewerFid || 'none'}`);
+
       if (urlFid) {
         // --- VISITOR MODE ---
         const targetFid = parseInt(urlFid);
-        console.log(`🔗 Link Detected via Hook! Target: ${targetFid}, Viewer: ${viewerFid}`);
-        
-        // Fetch the profile of the person in the link
         await fetchProfileOnly(targetFid);
         
-        // Am I looking at myself?
         if (viewerFid && viewerFid === targetFid) {
            setIsOwner(true);
         } else {
            setIsOwner(false); 
         }
 
-        // Store viewer info (for the "Create" button)
         if (viewerFid && context?.user) {
              setRemoteUser({ 
                 fid: viewerFid, 
@@ -48,8 +46,7 @@ export function useProfile() {
         }
 
       } else if (viewerFid) {
-        // --- OWNER MODE (No Link) ---
-        console.log("📱 No Link. Loading Owner:", viewerFid);
+        // --- OWNER MODE ---
         setIsOwner(true);
         await checkAccountStatus(
             viewerFid, 
@@ -57,17 +54,13 @@ export function useProfile() {
             context.user.pfpUrl || ''
         );
       } else {
-        // --- LOCALHOST / FALLBACK ---
-        console.log("💻 Localhost / No User.");
         setIsOwner(true);
         setIsLoading(false);
       }
     };
 
     init();
-  }, [urlFid]); // 👈 Re-run if URL changes
-
-  // --- HELPERS ---
+  }, [urlFid]);
 
   async function checkAccountStatus(fid: number, username: string, pfpUrl: string) {
     setIsLoading(true);
@@ -77,7 +70,6 @@ export function useProfile() {
       if (data) {
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
-        console.log("User not in DB. Ready to onboard.");
         setRemoteUser({ fid, username, pfp_url: pfpUrl });
         setProfile(null);
       }
@@ -92,7 +84,6 @@ export function useProfile() {
       if (data) {
         setProfile(mapDataToProfile(data));
       } else {
-        console.error("Link target not found in DB");
         setProfile(null); 
       }
     } catch (err) { console.error(err); } 
@@ -103,6 +94,7 @@ export function useProfile() {
       return { ...data, fid: data.id, pfp_url: freshPfp || data.pfp_url } as Profile;
   }
 
+  // --- FIXED CREATE FUNCTION (No Reload) ---
   const createAccount = async () => {
     if (!remoteUser) return;
     setIsLoggingIn(true);
@@ -117,8 +109,6 @@ export function useProfile() {
       custody_address: "", custom_links: [], showcase_nfts: [],
       dark_mode: false, theme_color: 'violet', border_style: 'rounded-3xl',
     };
-
-    console.log("Creating user:", newProfile.fid);
     
     const { error } = await supabase.from('profiles').upsert({
         id: newProfile.fid,
@@ -130,11 +120,12 @@ export function useProfile() {
     });
 
     if (error) {
-        console.error("Supabase Error:", error);
         alert(`Creation Failed: ${error.message}`);
     } else {
+        // SUCCESS: Update State Immediately (Don't Reload)
         setProfile(newProfile);
-        // Clear the URL param so we are now "Home"
+        setIsOwner(true);
+        // Clean URL just in case
         window.history.replaceState({}, '', window.location.pathname);
     }
     
@@ -166,6 +157,7 @@ export function useProfile() {
 
   return { 
       profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile 
+      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile,
+      debugLog // 👈 Export Debug Info
   };
 }
