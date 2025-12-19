@@ -1,5 +1,52 @@
 "use client";
 
+import type { Metadata, ResolvingMetadata } from 'next';
+
+type Props = {
+  params: { slug: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export async function generateMetadata(
+  { searchParams }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const fid = searchParams.fid;
+  
+  // ⚠️ REPLACE WITH YOUR PRODUCTION URL
+  const appUrl = "https://homepage-beta-henna-99.vercel.app"; 
+  
+  const targetUrl = fid ? `${appUrl}?fid=${fid}` : appUrl;
+
+  const miniappMetadata = {
+    version: "1", // 👈 Checklist says: Must be "1"
+    imageUrl: `${appUrl}/opengraph-image.png`, 
+    button: {
+      title: "Launch App",
+      action: {
+        type: "launch_miniapp", // 👈 Checklist says: Use launch_miniapp
+        name: "Showcase V2",
+        url: targetUrl, 
+        splashImageUrl: `${appUrl}/icon.png`,
+        splashBackgroundColor: "#f7f7f7",
+      },
+    },
+  };
+
+  return {
+    title: "Onchain Home",
+    other: {
+      // 👈 Checklist says: Use fc:miniapp
+      "fc:miniapp": JSON.stringify(miniappMetadata),
+      // Optional: Keep fc:frame ONLY if you need support for very old clients, 
+      // but the checklist advises against it for new agents. 
+      // We will stick to the strict standard:
+    },
+  };
+}
+
+"use client";
+
 import { useState, Suspense } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LoginScreen } from '../components/LoginScreen';
@@ -18,7 +65,7 @@ const THEME_MAP: Record<string, string> = {
   stone: 'from-stone-600 to-stone-800',
 };
 
-export default function AppContent() {
+function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, isLoggingIn, 
     login, createAccount, updateProfile, switchToMyProfile,
@@ -209,5 +256,14 @@ export default function AppContent() {
           </div>
        )}
     </div>
+  );
+}
+
+// 2. The Exported Suspense Wrapper (This is now OUTSIDE AppContent)
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppContent />
+    </Suspense>
   );
 }
