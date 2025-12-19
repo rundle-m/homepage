@@ -17,10 +17,7 @@ export async function generateMetadata(
   // ⚠️ REPLACE WITH YOUR PRODUCTION URL
   const appUrl = "https://homepage-beta-henna-99.vercel.app"; 
   
-  // 🧪 TEST: Force the link to ALWAYS point to ID 999 (or your main FID)
-  // If this works, we know the Metadata pipeline is working.
-  // Replace '999' with your actual Main FID.
-  const targetUrl = `${appUrl}?fid=399883`;
+  const targetUrl = fid ? `${appUrl}?fid=${fid}` : appUrl;
 
   const miniappMetadata = {
     version: "1",
