@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { fetchRecentNFTs } from '../lib/alchemy';
 
 interface GridProps {
-  nfts: any[]; // Legacy prop (we might ignore this now)
+  nfts: any[]; 
   isOwner: boolean;
   onUpdate: (nfts: any[]) => void;
   borderStyle: string;
-  walletAddress?: string; // 👈 NEW PROP: The user's wallet address
+  walletAddress?: string;
 }
 
 export function Grid({ nfts: manualNfts, isOwner, onUpdate, borderStyle, walletAddress }: GridProps) {
@@ -16,15 +16,19 @@ export function Grid({ nfts: manualNfts, isOwner, onUpdate, borderStyle, walletA
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // If we have a wallet address, fetch automatically!
     const loadNFTs = async () => {
+        // LOGGING TO HELP DEBUG
+        console.log("Grid Rendered. Wallet Address:", walletAddress);
+
         if (walletAddress) {
             setLoading(true);
+            console.log("Fetching NFTs for:", walletAddress);
             const autoNfts = await fetchRecentNFTs(walletAddress);
+            console.log("NFTs found:", autoNfts.length);
             setDisplayNfts(autoNfts);
             setLoading(false);
         } else {
-            // Fallback to manual list if no wallet connected
+            console.log("No wallet address. Using manual fallback.");
             setDisplayNfts(manualNfts || []);
         }
     };
@@ -41,14 +45,14 @@ export function Grid({ nfts: manualNfts, isOwner, onUpdate, borderStyle, walletA
       );
   }
 
-  // If no NFTs found
   if (displayNfts.length === 0) {
       return (
         <div className="px-6 py-8 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-3xl mx-6 mt-6">
             <p className="text-stone-400 text-sm">No NFTs found on Base.</p>
-            {isOwner && !walletAddress && (
-                <p className="text-violet-500 text-xs font-bold mt-2">
-                    Link your wallet in Farcaster to see your art here!
+            {/* Show the wallet we TRIED to scan, if any */}
+            {isOwner && (
+                <p className="text-[10px] text-stone-300 mt-2 font-mono">
+                    {walletAddress ? `Scanning: ${walletAddress.slice(0,6)}...` : "No Wallet Linked"}
                 </p>
             )}
         </div>

@@ -1,6 +1,6 @@
 // Replace this with your actual Alchemy Key
 // Or better, use process.env.NEXT_PUBLIC_ALCHEMY_KEY if you set up env vars
-const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY; // ⚠️ REPLACE THIS WITH YOUR KEY! "docs-demo" has rate limits.
+const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY; "docs-demo";// ⚠️ REPLACE THIS WITH YOUR KEY! "docs-demo" has rate limits.
 const CHAIN = "base-mainnet"; // We focus on Base for Farcaster users
 
 export async function fetchRecentNFTs(address: string) {

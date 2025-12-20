@@ -6,7 +6,6 @@ import sdk from "@farcaster/frame-sdk";
 import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
 
-// 1. Fix Type Definition
 interface FarcasterUser {
     fid: number;
     username?: string;
@@ -16,7 +15,6 @@ interface FarcasterUser {
 
 export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  
   const [remoteUser, setRemoteUser] = useState<{ 
     fid: number, 
     username: string, 
@@ -26,7 +24,7 @@ export function useProfile() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isOwner, setIsOwner] = useState(false); // State is declared here
+  const [isOwner, setIsOwner] = useState(false);
 
   const searchParams = useSearchParams();
   const urlFid = searchParams.get('fid');
@@ -35,10 +33,10 @@ export function useProfile() {
     const init = async () => {
       try { await sdk.actions.ready(); } catch (e) { console.error(e); }
       const context = await sdk.context;
-      
-      // 2. Use the Custom Type
       const user = context?.user as FarcasterUser | undefined;
       const viewerFid = user?.fid;
+      
+      // Get the first verified address
       const connectedAddress = user?.verifiedAddresses?.[0] || "";
 
       if (urlFid) {
@@ -46,11 +44,7 @@ export function useProfile() {
         const targetFid = parseInt(urlFid);
         await fetchProfileOnly(targetFid);
         
-        if (viewerFid && viewerFid === targetFid) {
-           setIsOwner(true);
-        } else {
-           setIsOwner(false); 
-        }
+        setIsOwner(!!(viewerFid && viewerFid === targetFid));
 
         if (viewerFid && user) {
              setRemoteUser({ 
@@ -71,7 +65,7 @@ export function useProfile() {
             connectedAddress
         );
       } else {
-        setIsOwner(true); // Default for localhost
+        setIsOwner(true);
         setIsLoading(false);
       }
     };
@@ -85,11 +79,21 @@ export function useProfile() {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
 
       if (data) {
-        if (address && !data.custody_address) {
-            console.log("Auto-linking wallet:", address);
-            await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
-            data.custody_address = address;
+        // --- 🛠️ FORCE SYNC LOGIC 🛠️ ---
+        // If we have a connected address from Farcaster...
+        if (address) {
+            // ...and it doesn't match what's in the DB (or DB is empty)
+            if (data.custody_address !== address) {
+                console.log(`🔄 Syncing Wallet: DB was '${data.custody_address}', updating to '${address}'`);
+                
+                // Update Supabase
+                await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
+                
+                // Update Local Data immediately so UI reflects it
+                data.custody_address = address;
+            }
         }
+        
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
         console.log("User not in DB. Ready to onboard.");
@@ -144,7 +148,7 @@ export function useProfile() {
         alert(`Creation Failed: ${error.message}`);
     } else {
         setProfile(newProfile);
-        setIsOwner(true); // Ensure owner state is set
+        setIsOwner(true);
         window.history.replaceState({}, '', window.location.pathname);
     }
     
@@ -166,16 +170,8 @@ export function useProfile() {
       window.location.reload();
   };
 
-  // 3. Fix Return Statement
   return { 
-      profile, 
-      remoteUser, 
-      isLoading, 
-      isOwner, // 👈 Included here
-      isLoggingIn, 
-      login: checkAccountStatus, 
-      createAccount, 
-      updateProfile, 
-      switchToMyProfile
+      profile, remoteUser, isLoading, isOwner, isLoggingIn, 
+      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile
   };
 }
