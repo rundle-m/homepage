@@ -6,16 +6,27 @@ import sdk from "@farcaster/frame-sdk";
 import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
 
+// 1. Fix Type Definition
+interface FarcasterUser {
+    fid: number;
+    username?: string;
+    pfpUrl?: string;
+    verifiedAddresses?: string[]; 
+}
+
 export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [remoteUser, setRemoteUser] = useState<{ fid: number, username: string, pfp_url: string } | null>(null);
+  
+  const [remoteUser, setRemoteUser] = useState<{ 
+    fid: number, 
+    username: string, 
+    pfp_url: string,
+    custody_address: string 
+  } | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-
-  // Debug State
-  const [debugLog, setDebugLog] = useState("Initializing...");
+  const [isOwner, setIsOwner] = useState(false); // State is declared here
 
   const searchParams = useSearchParams();
   const urlFid = searchParams.get('fid');
@@ -24,9 +35,11 @@ export function useProfile() {
     const init = async () => {
       try { await sdk.actions.ready(); } catch (e) { console.error(e); }
       const context = await sdk.context;
-      const viewerFid = context?.user?.fid;
-
-      setDebugLog(`URL: ${urlFid || 'none'} | Viewer: ${viewerFid || 'none'}`);
+      
+      // 2. Use the Custom Type
+      const user = context?.user as FarcasterUser | undefined;
+      const viewerFid = user?.fid;
+      const connectedAddress = user?.verifiedAddresses?.[0] || "";
 
       if (urlFid) {
         // --- VISITOR MODE ---
@@ -39,11 +52,12 @@ export function useProfile() {
            setIsOwner(false); 
         }
 
-        if (viewerFid && context?.user) {
+        if (viewerFid && user) {
              setRemoteUser({ 
                 fid: viewerFid, 
-                username: context.user.username || 'unknown', 
-                pfp_url: context.user.pfpUrl || '' 
+                username: user.username || 'unknown', 
+                pfp_url: user.pfpUrl || '',
+                custody_address: connectedAddress 
              });
         }
 
@@ -52,11 +66,12 @@ export function useProfile() {
         setIsOwner(true);
         await checkAccountStatus(
             viewerFid, 
-            context.user.username || 'unknown', 
-            context.user.pfpUrl || ''
+            user?.username || 'unknown', 
+            user?.pfpUrl || '',
+            connectedAddress
         );
       } else {
-        setIsOwner(true);
+        setIsOwner(true); // Default for localhost
         setIsLoading(false);
       }
     };
@@ -64,15 +79,21 @@ export function useProfile() {
     init();
   }, [urlFid]);
 
-  async function checkAccountStatus(fid: number, username: string, pfpUrl: string) {
+  async function checkAccountStatus(fid: number, username: string, pfpUrl: string, address: string) {
     setIsLoading(true);
     try {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
 
       if (data) {
+        if (address && !data.custody_address) {
+            console.log("Auto-linking wallet:", address);
+            await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
+            data.custody_address = address;
+        }
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
-        setRemoteUser({ fid, username, pfp_url: pfpUrl });
+        console.log("User not in DB. Ready to onboard.");
+        setRemoteUser({ fid, username, pfp_url: pfpUrl, custody_address: address });
         setProfile(null);
       }
     } catch (err) { console.error(err); } 
@@ -83,11 +104,8 @@ export function useProfile() {
     setIsLoading(true);
     try {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
-      if (data) {
-        setProfile(mapDataToProfile(data));
-      } else {
-        setProfile(null); 
-      }
+      if (data) setProfile(mapDataToProfile(data));
+      else setProfile(null); 
     } catch (err) { console.error(err); } 
     finally { setIsLoading(false); }
   }
@@ -96,7 +114,6 @@ export function useProfile() {
       return { ...data, fid: data.id, pfp_url: freshPfp || data.pfp_url } as Profile;
   }
 
-  // --- FIXED CREATE FUNCTION (No Reload) ---
   const createAccount = async () => {
     if (!remoteUser) return;
     setIsLoggingIn(true);
@@ -106,9 +123,10 @@ export function useProfile() {
       username: remoteUser.username,
       display_name: remoteUser.username,
       pfp_url: remoteUser.pfp_url,
+      custody_address: remoteUser.custody_address,
       banner_url: "",
       bio: 'Onchain Explorer',
-      custody_address: "", custom_links: [], showcase_nfts: [],
+      custom_links: [], showcase_nfts: [],
       dark_mode: false, theme_color: 'violet', border_style: 'rounded-3xl',
     };
     
@@ -117,6 +135,7 @@ export function useProfile() {
         username: newProfile.username,
         display_name: newProfile.display_name,
         pfp_url: newProfile.pfp_url,
+        custody_address: newProfile.custody_address,
         custom_links: [],
         showcase_nfts: []
     });
@@ -124,10 +143,8 @@ export function useProfile() {
     if (error) {
         alert(`Creation Failed: ${error.message}`);
     } else {
-        // SUCCESS: Update State Immediately (Don't Reload)
         setProfile(newProfile);
-        setIsOwner(true);
-        // Clean URL just in case
+        setIsOwner(true); // Ensure owner state is set
         window.history.replaceState({}, '', window.location.pathname);
     }
     
@@ -139,15 +156,7 @@ export function useProfile() {
     setProfile({ ...profile, ...updates });
     await supabase.from('profiles').upsert({ 
         id: profile.fid, 
-        username: profile.username,
-        display_name: profile.display_name,
-        pfp_url: profile.pfp_url,
-        bio: profile.bio,
-        custody_address: profile.custody_address,
-        theme_color: profile.theme_color,
-        border_style: profile.border_style,
-        banner_url: profile.banner_url,
-        showcase_nfts: profile.showcase_nfts,
+        ...profile,
         ...updates 
     });
   };
@@ -157,9 +166,16 @@ export function useProfile() {
       window.location.reload();
   };
 
+  // 3. Fix Return Statement
   return { 
-      profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile,
-      debugLog // 👈 Export Debug Info
+      profile, 
+      remoteUser, 
+      isLoading, 
+      isOwner, // 👈 Included here
+      isLoggingIn, 
+      login: checkAccountStatus, 
+      createAccount, 
+      updateProfile, 
+      switchToMyProfile
   };
 }

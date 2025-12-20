@@ -1,121 +1,80 @@
 "use client";
 
-import { useState } from 'react';
-import type { ShowcaseNFT } from '../types/types';
+import { useState, useEffect } from 'react';
+import { fetchRecentNFTs } from '../lib/alchemy';
 
-interface NFTGridProps {
-  nfts: ShowcaseNFT[];
+interface GridProps {
+  nfts: any[]; // Legacy prop (we might ignore this now)
   isOwner: boolean;
-  onUpdate: (nfts: ShowcaseNFT[]) => void;
-  borderStyle: string; // We pass this down so the images match the profile theme!
+  onUpdate: (nfts: any[]) => void;
+  borderStyle: string;
+  walletAddress?: string; // 👈 NEW PROP: The user's wallet address
 }
 
-export function Grid({ nfts, isOwner, onUpdate, borderStyle }: NFTGridProps) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [title, setTitle] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+export function Grid({ nfts: manualNfts, isOwner, onUpdate, borderStyle, walletAddress }: GridProps) {
+  const [displayNfts, setDisplayNfts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleAdd = () => {
-    if (!title || !imageUrl) return;
-    
-    const newNFT: ShowcaseNFT = {
-      id: Math.random().toString(36).substr(2, 9),
-      title,
-      image_url: imageUrl,
-      link_url: ""
+  useEffect(() => {
+    // If we have a wallet address, fetch automatically!
+    const loadNFTs = async () => {
+        if (walletAddress) {
+            setLoading(true);
+            const autoNfts = await fetchRecentNFTs(walletAddress);
+            setDisplayNfts(autoNfts);
+            setLoading(false);
+        } else {
+            // Fallback to manual list if no wallet connected
+            setDisplayNfts(manualNfts || []);
+        }
     };
 
-    // Add to the list
-    onUpdate([...nfts, newNFT]);
-    
-    // Reset form
-    setTitle("");
-    setImageUrl("");
-    setIsAdding(false);
-  };
+    loadNFTs();
+  }, [walletAddress, manualNfts]);
 
-  const removeNFT = (id: string) => {
-    onUpdate(nfts.filter(n => n.id !== id));
-  };
+  if (loading) {
+      return (
+        <div className="p-6 text-center">
+            <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto mb-2"></div>
+            <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">Scanning Blockchain...</p>
+        </div>
+      );
+  }
+
+  // If no NFTs found
+  if (displayNfts.length === 0) {
+      return (
+        <div className="px-6 py-8 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-3xl mx-6 mt-6">
+            <p className="text-stone-400 text-sm">No NFTs found on Base.</p>
+            {isOwner && !walletAddress && (
+                <p className="text-violet-500 text-xs font-bold mt-2">
+                    Link your wallet in Farcaster to see your art here!
+                </p>
+            )}
+        </div>
+      );
+  }
 
   return (
-    <section className="px-6 mt-8 mb-8">
-      <div className="flex justify-between items-end mb-4">
-        <h3 className="font-bold text-xs uppercase tracking-widest text-stone-400">Art Collection</h3>
-      </div>
-
-      {/* The Grid */}
-      {nfts.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4">
-          {nfts.map((nft) => (
-            <div key={nft.id} className="relative group">
-              {/* The Image Card */}
-              <div className={`overflow-hidden aspect-square bg-stone-200 dark:bg-stone-800 relative ${borderStyle}`}>
-                 <img 
-                   src={nft.image_url} 
-                   alt={nft.title}
-                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                 />
-                 
-                 {/* Gradient Overlay on Hover */}
-                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                   <p className="text-white text-xs font-bold truncate">{nft.title}</p>
-                 </div>
-              </div>
-
-              {/* Delete Button (Owner Only) */}
-              {isOwner && (
-                <button 
-                  onClick={() => removeNFT(nft.id)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full shadow-md text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Empty State */
-        !isAdding && (
-            <div className={`text-center p-8 border-2 border-dashed border-stone-200 dark:border-stone-800 ${borderStyle}`}>
-            <p className="text-sm text-stone-400 mb-2">Your gallery is empty.</p>
-            </div>
-        )
-      )}
-
-      {/* Add Button */}
-      {isOwner && !isAdding && (
-        <button 
-          onClick={() => setIsAdding(true)}
-          className={`w-full mt-4 py-3 border-2 border-dashed border-stone-300 dark:border-stone-700 text-stone-400 font-bold hover:bg-stone-50 dark:hover:bg-stone-800 hover:border-stone-400 transition ${borderStyle}`}
-        >
-          + Add Art
-        </button>
-      )}
-
-      {/* Add Form */}
-      {isAdding && (
-        <div className={`mt-4 p-4 bg-stone-100 dark:bg-stone-800 space-y-3 animate-in slide-in-from-top-2 ${borderStyle}`}>
-          <input 
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (e.g. Farcaster OG)"
-            className="w-full p-3 rounded-lg border-none outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-stone-900"
-            autoFocus
-          />
-          <input 
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="Image URL (Right click image -> Copy Link)"
-            className="w-full p-3 rounded-lg border-none outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-stone-900"
-          />
-          <div className="flex gap-2 pt-2">
-            <button onClick={handleAdd} className="flex-1 bg-black dark:bg-white text-white dark:text-black py-2 rounded-lg font-bold shadow-lg">Add to Gallery</button>
-            <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-stone-500 font-bold hover:bg-stone-200 dark:hover:bg-stone-700 rounded-lg">Cancel</button>
+    <div className="px-6 mt-8">
+      <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">
+        Recent Collectibles (Base)
+      </h3>
+      <div className="grid grid-cols-2 gap-4">
+        {displayNfts.map((nft, i) => (
+          <div key={`${nft.contract_address}-${i}`} className={`relative aspect-square bg-stone-100 dark:bg-stone-800 overflow-hidden shadow-sm ${borderStyle}`}>
+             <img 
+               src={nft.image_url} 
+               alt={nft.name} 
+               className="w-full h-full object-cover"
+             />
+             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                <p className="text-white text-xs font-bold truncate">{nft.name}</p>
+                <p className="text-white/60 text-[10px] truncate">{nft.collection}</p>
+             </div>
           </div>
-        </div>
-      )}
-    </section>
+        ))}
+      </div>
+    </div>
   );
 }

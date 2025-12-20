@@ -59,7 +59,7 @@ function AppContent() {
   }
 
   if (!profile) {
-    return <LoginScreen onLogin={(fid) => login(fid, 'user', '')} isLoggingIn={isLoggingIn} />;
+    return <LoginScreen onLogin={(fid) => login(fid, 'user', '', '')} isLoggingIn={isLoggingIn} />;
   }
 
   const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
@@ -102,6 +102,8 @@ function AppContent() {
          isOwner={isOwner}
          onUpdate={(newNFTs) => updateProfile({ showcase_nfts: newNFTs })}
          borderStyle={borderStyle}
+         walletAddress={profile.custody_address}
+
        />
        <ProjectList 
           links={profile.custom_links || []} 
