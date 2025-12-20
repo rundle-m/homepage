@@ -7,7 +7,7 @@ import { ProjectList } from './ProjectList';
 import { ThemePicker } from './ThemePicker';
 import { Grid } from './Grid'; 
 import { LandingPage } from './LandingPage';
-import { NFTPicker } from './NFTPicker'; 
+import { NFTPicker } from '../components/NFTPicker'; 
 import type { Link, NFT } from '../types/types';
 
 const THEME_MAP: Record<string, string> = {
