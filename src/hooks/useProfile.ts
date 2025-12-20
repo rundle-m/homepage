@@ -28,6 +28,7 @@ export function useProfile() {
 
   const searchParams = useSearchParams();
   const urlFid = searchParams.get('fid');
+  const [debugAddress, setDebugAddress] = useState<string>("Scanning...");
 
   useEffect(() => {
     const init = async () => {
@@ -45,7 +46,9 @@ export function useProfile() {
       const connectedAddress = user?.verifiedAddresses?.[0] || "";
       // Log 4: Decision 
       console.log(`Logic Decision: FID=${viewerFid}, Address=${connectedAddress}`);
-
+      // Capture the raw address
+      const rawAddress = user?.verifiedAddresses?.[0];
+      setDebugAddress(rawAddress || "SDK returned undefined"); //update debug state 
       if (urlFid) {
         // --- VISITOR MODE ---
         const targetFid = parseInt(urlFid);
@@ -179,6 +182,6 @@ export function useProfile() {
 
   return { 
       profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile
+      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile, debugAddress
   };
 }
