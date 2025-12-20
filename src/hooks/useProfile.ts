@@ -5,7 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import sdk from "@farcaster/frame-sdk";
 import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
+import { fetchNeynarUser } from '../lib/neynar'; // 👈 Import the new tool
 
+// (Keep the FarcasterUser interface if you want, though we rely less on it now)
 interface FarcasterUser {
     fid: number;
     username?: string;
@@ -25,30 +27,40 @@ export function useProfile() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  
+  // Debug state
+  const [debugAddress, setDebugAddress] = useState<string>("Initializing...");
 
   const searchParams = useSearchParams();
   const urlFid = searchParams.get('fid');
-  const [debugAddress, setDebugAddress] = useState<string>("Scanning...");
 
   useEffect(() => {
     const init = async () => {
-      try { console.log("SDK Initialising..."); await sdk.actions.ready(); } catch (e) { console.error("SDK Error:", e); }
+      try { await sdk.actions.ready(); } catch (e) { console.error(e); }
+      
       const context = await sdk.context;
-      // Log 2 raw context
-      console.log("raw context:", context);
-      const user = context?.user as FarcasterUser | undefined
-      //Log 3 user data
-      console.log("USER DATA:", user);
-      console.log("Verified Adresses:", user?.verifiedAddresses);
+      const user = context?.user as FarcasterUser | undefined;
       const viewerFid = user?.fid;
       
-      // Get the first verified address
-      const connectedAddress = user?.verifiedAddresses?.[0] || "";
-      // Log 4: Decision 
-      console.log(`Logic Decision: FID=${viewerFid}, Address=${connectedAddress}`);
-      // Capture the raw address
-      const rawAddress = user?.verifiedAddresses?.[0];
-      setDebugAddress(rawAddress || "SDK returned undefined"); //update debug state 
+      // 1. 🛑 STOP! Don't rely on context for address.
+      // If we have a Viewer FID, let's ask Neynar for the real details.
+      let connectedAddress = "";
+      
+      if (viewerFid) {
+          setDebugAddress("Asking Neynar...");
+          const neynarUser = await fetchNeynarUser(viewerFid);
+          
+          if (neynarUser && neynarUser.custody_address) {
+              connectedAddress = neynarUser.custody_address;
+              setDebugAddress(connectedAddress); // Show success in debug box
+          } else {
+              setDebugAddress("Neynar found user, but no ETH address linked.");
+          }
+      } else {
+          setDebugAddress("No Viewer FID found (Localhost?)");
+      }
+
+      // 2. Logic Flow (Same as before, but using the Neynar-sourced address)
       if (urlFid) {
         // --- VISITOR MODE ---
         const targetFid = parseInt(urlFid);
@@ -61,7 +73,7 @@ export function useProfile() {
                 fid: viewerFid, 
                 username: user.username || 'unknown', 
                 pfp_url: user.pfpUrl || '',
-                custody_address: connectedAddress 
+                custody_address: connectedAddress // 👈 Using Neynar's data
              });
         }
 
@@ -72,9 +84,10 @@ export function useProfile() {
             viewerFid, 
             user?.username || 'unknown', 
             user?.pfpUrl || '',
-            connectedAddress
+            connectedAddress // 👈 Using Neynar's data
         );
       } else {
+        // Localhost fallback
         setIsOwner(true);
         setIsLoading(false);
       }
@@ -83,27 +96,21 @@ export function useProfile() {
     init();
   }, [urlFid]);
 
+  // ... (The rest of the file: checkAccountStatus, fetchProfileOnly, etc. stays EXACTLY the same)
+  // ... Just make sure to keep the imports and the rest of the functions intact.
+  
+  // Quick helper to ensure checkAccountStatus uses the new address logic
   async function checkAccountStatus(fid: number, username: string, pfpUrl: string, address: string) {
     setIsLoading(true);
     try {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
 
       if (data) {
-        // --- 🛠️ FORCE SYNC LOGIC 🛠️ ---
-        // If we have a connected address from Farcaster...
-        if (address) {
-            // ...and it doesn't match what's in the DB (or DB is empty)
-            if (data.custody_address !== address) {
-                console.log(`🔄 Syncing Wallet: DB was '${data.custody_address}', updating to '${address}'`);
-                
-                // Update Supabase
-                await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
-                
-                // Update Local Data immediately so UI reflects it
-                data.custody_address = address;
-            }
+        if (address && data.custody_address !== address) {
+            console.log(`🔄 Syncing Wallet via Neynar: '${address}'`);
+            await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
+            data.custody_address = address;
         }
-        
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
         console.log("User not in DB. Ready to onboard.");
@@ -113,7 +120,10 @@ export function useProfile() {
     } catch (err) { console.error(err); } 
     finally { setIsLoading(false); }
   }
-
+  
+  // ... (Paste the rest of the file from previous steps: fetchProfileOnly, mapDataToProfile, createAccount, updateProfile, switchToMyProfile, return)
+  
+  // Don't forget to close the function
   async function fetchProfileOnly(fid: number) {
     setIsLoading(true);
     try {
@@ -181,7 +191,15 @@ export function useProfile() {
   };
 
   return { 
-      profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-      login: checkAccountStatus, createAccount, updateProfile, switchToMyProfile, debugAddress
+      profile, 
+      remoteUser, 
+      isLoading, 
+      isOwner, 
+      isLoggingIn, 
+      login: checkAccountStatus, 
+      createAccount, 
+      updateProfile, 
+      switchToMyProfile,
+      debugAddress
   };
 }
