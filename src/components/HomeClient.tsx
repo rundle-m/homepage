@@ -21,7 +21,7 @@ const THEME_MAP: Record<string, string> = {
 function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-    login, createAccount, updateProfile, switchToMyProfile
+    login, createAccount, updateProfile, switchToMyProfile, debugAddress
   } = useProfile();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -86,6 +86,13 @@ function AppContent() {
              </button>
           )}
        </div>
+
+       {/* 🚨 DIAGNOSTIC BOX 🚨 */}
+       <div className="mx-6 mb-4 p-4 bg-red-900/20 border border-red-500 rounded-xl text-[10px] font-mono text-red-600 dark:text-red-400 overflow-hidden break-all">
+          <p><strong>FID:</strong> {profile?.fid || "Unknown"}</p>
+          <p><strong>DB Value:</strong> {profile?.custody_address || "NULL"}</p>
+          <p><strong>SDK Sees:</strong> {debugAddress}</p> {/* 👈 THE TRUTH */}
+       </div>     
 
        {/* PROFILE CARD */}
        <div className="px-6 relative -mt-16 text-center">
