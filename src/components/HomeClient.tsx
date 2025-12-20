@@ -21,14 +21,14 @@ const THEME_MAP: Record<string, string> = {
 function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-    login, createAccount, updateProfile, switchToMyProfile,
-    debugLog 
+    login, createAccount, updateProfile, switchToMyProfile
   } = useProfile();
   
   const [isEditing, setIsEditing] = useState(false);
 
   const handleShare = () => {
     if (!profile) return;
+    // Use window.location.origin to be dynamic, or your hardcoded URL
     const baseUrl = window.location.origin; 
     const shareUrl = `${baseUrl}?fid=${profile.fid}`;
     const text = `Check out my Onchain Home! 🏠`;
@@ -36,19 +36,9 @@ function AppContent() {
     window.open(warpcastUrl, '_blank');
   };
 
-  const DebugBar = () => (
-      <div className="fixed top-0 left-0 right-0 bg-black/90 text-white text-[10px] p-2 z-50 text-center font-mono overflow-x-auto whitespace-nowrap">
-        <strong>URL:</strong> {typeof window !== 'undefined' ? window.location.href : 'SSR'} <br/>
-        <strong>Log:</strong> {debugLog}
-      </div>
-  );
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 text-stone-400">
-         <div className="fixed top-0 left-0 right-0 bg-black text-white text-[10px] p-1 z-50 text-center font-mono">
-            LOADING... {debugLog}
-         </div>
         <div className="animate-pulse flex flex-col items-center">
           <div className="h-12 w-12 bg-stone-200 rounded-full mb-4"></div>
           <p className="text-xs font-bold tracking-widest opacity-50">LOADING HOME</p>
@@ -59,25 +49,17 @@ function AppContent() {
 
   if (!profile && remoteUser && isOwner) {
     return (
-      <>
-        <DebugBar />
-        <LandingPage 
-          username={remoteUser.username}
-          pfpUrl={remoteUser.pfp_url}
-          onCreate={createAccount}
-          isCreating={isLoggingIn}
-        />
-      </>
+      <LandingPage 
+        username={remoteUser.username}
+        pfpUrl={remoteUser.pfp_url}
+        onCreate={createAccount}
+        isCreating={isLoggingIn}
+      />
     );
   }
 
   if (!profile) {
-    return (
-        <>
-            <DebugBar />
-            <LoginScreen onLogin={(fid) => login(fid, 'user', '')} isLoggingIn={isLoggingIn} />
-        </>
-    );
+    return <LoginScreen onLogin={(fid) => login(fid, 'user', '')} isLoggingIn={isLoggingIn} />;
   }
 
   const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
@@ -85,7 +67,7 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen pb-20 ${profile.dark_mode ? 'bg-stone-950 text-white' : 'bg-stone-50 text-stone-900'}`}>
-       <DebugBar />
+       
        {/* HEADER */}
        <div className={`h-40 relative group overflow-hidden`}>
           <div className={`absolute inset-0 bg-gradient-to-r ${themeGradient} transition-all duration-500`} />
@@ -118,13 +100,13 @@ function AppContent() {
        <Grid 
          nfts={profile.showcase_nfts || []}
          isOwner={isOwner}
-         onUpdate={(newNFTs: ShowcaseNFT[]) => updateProfile({ showcase_nfts: newNFTs })}
+         onUpdate={(newNFTs) => updateProfile({ showcase_nfts: newNFTs })}
          borderStyle={borderStyle}
        />
        <ProjectList 
           links={profile.custom_links || []} 
           isOwner={isOwner}
-          onUpdate={(newLinks: Link[]) => updateProfile({ custom_links: newLinks })} 
+          onUpdate={(newLinks) => updateProfile({ custom_links: newLinks })} 
        />
 
        {/* CTA BUTTONS */}
@@ -151,7 +133,7 @@ function AppContent() {
 
        <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800 pb-32">
          <p className="text-stone-300 text-xs font-mono uppercase tracking-widest">
-           Onchain Home v2.7
+           Onchain Home v2.8
          </p>
        </div>
 
@@ -203,7 +185,6 @@ function AppContent() {
   );
 }
 
-// Ensure the export handles the Suspense wrapper
 export default function HomeClient() {
     return (
       <Suspense fallback={<div>Loading...</div>}>
