@@ -31,13 +31,20 @@ export function useProfile() {
 
   useEffect(() => {
     const init = async () => {
-      try { await sdk.actions.ready(); } catch (e) { console.error(e); }
+      try { console.log("SDK Initialising..."); await sdk.actions.ready(); } catch (e) { console.error("SDK Error:", e); }
       const context = await sdk.context;
-      const user = context?.user as FarcasterUser | undefined;
+      // Log 2 raw context
+      console.log("raw context:", context);
+      const user = context?.user as FarcasterUser | undefined
+      //Log 3 user data
+      console.log("USER DATA:", user);
+      console.log("Verified Adresses:", user?.verifiedAddresses);
       const viewerFid = user?.fid;
       
       // Get the first verified address
       const connectedAddress = user?.verifiedAddresses?.[0] || "";
+      // Log 4: Decision 
+      console.log(`Logic Decision: FID=${viewerFid}, Address=${connectedAddress}`);
 
       if (urlFid) {
         // --- VISITOR MODE ---

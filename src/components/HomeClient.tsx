@@ -26,6 +26,9 @@ function AppContent() {
   
   const [isEditing, setIsEditing] = useState(false);
 
+    // Debug
+  const [diaLog, setDiaLog] = useState("Waiting for SDK...");
+
   const handleShare = () => {
     if (!profile) return;
     // Use window.location.origin to be dynamic, or your hardcoded URL
@@ -94,6 +97,13 @@ function AppContent() {
           <h1 className="text-2xl font-black mt-4">{profile.display_name}</h1>
           <p className="text-stone-500">@{profile.username}</p>
           <p className="mt-2 text-sm opacity-80 max-w-xs mx-auto">{profile.bio}</p>
+       </div>
+       
+       {/* DIAGNOSTIC BOX (Delete after fixing)  */}
+       <div className="mx-6 mb-4 p-4 bg-red-900/20 border border-red-500 rounded-xl text-[10px] font-mono text-red-600 dark:text-red-400 overflow-hidden break-all">
+          <p><strong>FID:</strong> {profile?.fid || "Unknown"}</p>
+          <p><strong>Custody Addr (DB):</strong> {profile?.custody_address || "NULL"}</p>
+          <p><strong>Is Owner:</strong> {isOwner ? "YES" : "NO"}</p>
        </div>
 
        {/* CONTENT */}
