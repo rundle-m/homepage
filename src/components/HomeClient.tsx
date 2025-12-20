@@ -7,7 +7,8 @@ import { ProjectList } from './ProjectList';
 import { ThemePicker } from './ThemePicker';
 import { Grid } from './Grid'; 
 import { LandingPage } from './LandingPage';
-import type { Link, ShowcaseNFT } from '../types/types';
+import { NFTPicker } from './NFTPicker'; 
+import type { Link, NFT } from '../types/types';
 
 const THEME_MAP: Record<string, string> = {
   violet: 'from-violet-600 to-indigo-600',
@@ -25,6 +26,7 @@ function AppContent() {
   } = useProfile();
   
   const [isEditing, setIsEditing] = useState(false);
+  const [isPickingNFTs, setIsPickingNFTs] = useState(false);
 
     // Debug
   const [diaLog, setDiaLog] = useState("Waiting for SDK...");
@@ -85,14 +87,7 @@ function AppContent() {
                Edit Profile
              </button>
           )}
-       </div>
-
-       {/* 🚨 DIAGNOSTIC BOX 🚨 */}
-       <div className="mx-6 mb-4 p-4 bg-red-900/20 border border-red-500 rounded-xl text-[10px] font-mono text-red-600 dark:text-red-400 overflow-hidden break-all">
-          <p><strong>FID:</strong> {profile?.fid || "Unknown"}</p>
-          <p><strong>DB Value:</strong> {profile?.custody_address || "NULL"}</p>
-          <p><strong>SDK Sees:</strong> {debugAddress}</p> {/* 👈 THE TRUTH */}
-       </div>     
+       </div>    
 
        {/* PROFILE CARD */}
        <div className="px-6 relative -mt-16 text-center">
@@ -105,13 +100,18 @@ function AppContent() {
           <p className="text-stone-500">@{profile.username}</p>
           <p className="mt-2 text-sm opacity-80 max-w-xs mx-auto">{profile.bio}</p>
        </div>
-       
-       {/* DIAGNOSTIC BOX (Delete after fixing)  */}
-       <div className="mx-6 mb-4 p-4 bg-red-900/20 border border-red-500 rounded-xl text-[10px] font-mono text-red-600 dark:text-red-400 overflow-hidden break-all">
-          <p><strong>FID:</strong> {profile?.fid || "Unknown"}</p>
-          <p><strong>Custody Addr (DB):</strong> {profile?.custody_address || "NULL"}</p>
-          <p><strong>Is Owner:</strong> {isOwner ? "YES" : "NO"}</p>
-       </div>
+
+        {/* NFT EDIT BUTTON (Only for owner) */}
+       {isOwner && (
+          <div className="px-6 mb-2 flex justify-end">
+             <button 
+               onClick={() => setIsPickingNFTs(true)}
+               className="text-xs font-bold text-violet-600 bg-violet-50 dark:bg-violet-900/30 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition"
+             >
+               + Edit Showcase
+             </button>
+          </div>
+       )}
 
        {/* CONTENT */}
        <Grid 
@@ -156,7 +156,7 @@ function AppContent() {
          </p>
        </div>
 
-       {/* EDIT OVERLAY */}
+       {/* EDIT OVERLAY (Themes, Bio, etc.) */}
        {isEditing && (
           <div className="fixed inset-0 bg-white dark:bg-stone-900 z-50 flex flex-col animate-in slide-in-from-bottom-10">
              <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
@@ -199,6 +199,18 @@ function AppContent() {
                  </div>
              </div>
           </div>
+       )}
+
+       {/* NFT PICKER OVERLAY (New!) */}
+       {isPickingNFTs && profile && (
+          <NFTPicker 
+             walletAddress={profile.custody_address} 
+             currentSelection={profile.showcase_nfts || []}
+             onClose={() => setIsPickingNFTs(false)}
+             onUpdate={(newNFTs) => {
+                updateProfile({ showcase_nfts: newNFTs });
+             }}
+          />
        )}
     </div>
   );

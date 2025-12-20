@@ -3,9 +3,10 @@ export interface Link {
   url: string;
 }
 
-export interface ShowcaseNFT {
+export interface NFT {
   id: string;
-  title: string;
+  name: string;
+  collection: string
   image_url: string;
   link_url?: string;
 }
@@ -18,7 +19,7 @@ export interface Profile {
   bio: string;
   custody_address: string;
   custom_links: Link[];
-  showcase_nfts: ShowcaseNFT[];
+  showcase_nfts: NFT[];
   
   // NEW: Banner Field
   banner_url?: string;
