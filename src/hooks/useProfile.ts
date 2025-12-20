@@ -7,6 +7,15 @@ import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
 import { fetchNeynarUser } from '../lib/neynar'; 
 
+// Define the shape of the Neynar User so TS knows what to look for
+interface NeynarUser {
+    fid: number;
+    username: string;
+    pfp_url: string;
+    custody_address: string;
+    verifications?: string[]; 
+}
+
 interface FarcasterUser {
     fid: number;
     username?: string;
@@ -45,32 +54,33 @@ export function useProfile() {
       let connectedAddress = "";
       
       if (viewerFid) {
-          setDebugAddress("Asking Neynar...");
-          // We fetch the full user data from Neynar to get the wallet addresses
-          const neynarUser = await fetchNeynarUser(viewerFid);
+          setDebugAddress("Fetching from Neynar...");
+          
+          const neynarUser = (await fetchNeynarUser(viewerFid)) as NeynarUser;
           
           if (neynarUser) {
-              // --- 🚨 UPDATED LOGIC HERE 🚨 ---
-              // Priority 1: Check for Verified Addresses (Your "Primary" wallet)
-              // Priority 2: Fallback to Custody Address (The "Vault")
-              
-              const verifications = (neynarUser as any).verifications || [];
+              const verifications = neynarUser.verifications || [];
               const custody = neynarUser.custody_address;
 
+              // --- 🚨 UPDATED LOGIC HERE 🚨 ---
+              // If we have verified addresses, we grab the LAST one.
+              // (verifications[0] is usually the oldest, verifications[length-1] is the newest)
               if (verifications.length > 0) {
-                  // Use the first verified wallet (usually the most recently connected/primary)
-                  connectedAddress = verifications[0];
-                  setDebugAddress(`Primary: ${connectedAddress.slice(0,6)}...`); 
+                  // Get the most recent verification
+                  const mostRecent = verifications[verifications.length - 1];
+                  connectedAddress = mostRecent;
+                  
+                  // Debug: Show how many were found
+                  setDebugAddress(`Found ${verifications.length} wallets. Using: ${connectedAddress.slice(0,6)}...`); 
               } else if (custody) {
-                  // Fallback to custody if no verified wallets exist
                   connectedAddress = custody;
-                  setDebugAddress(`Custody: ${connectedAddress.slice(0,6)}...`);
+                  setDebugAddress(`Custody Only: ${connectedAddress.slice(0,6)}...`);
               } else {
-                  setDebugAddress("Neynar found user, but no ETH address linked.");
+                  setDebugAddress("No ETH address found.");
               }
           } 
       } else {
-          setDebugAddress("No Viewer FID found (Localhost?)");
+          setDebugAddress("No Viewer FID (Localhost?)");
       }
 
       // 2. LOGIC FLOW
@@ -79,7 +89,6 @@ export function useProfile() {
         const targetFid = parseInt(urlFid);
         await fetchProfileOnly(targetFid);
         
-        // You are the owner if your Viewer FID matches the Page FID
         setIsOwner(!!(viewerFid && viewerFid === targetFid));
 
         if (viewerFid && user) {
@@ -87,7 +96,7 @@ export function useProfile() {
                 fid: viewerFid, 
                 username: user.username || 'unknown', 
                 pfp_url: user.pfpUrl || '',
-                custody_address: connectedAddress // Stores your Primary wallet now
+                custody_address: connectedAddress 
              });
         }
 
@@ -101,7 +110,6 @@ export function useProfile() {
             connectedAddress 
         );
       } else {
-        // Localhost fallback
         setIsOwner(true);
         setIsLoading(false);
       }
@@ -110,23 +118,20 @@ export function useProfile() {
     init();
   }, [urlFid]);
 
-  // Check DB and sync wallet if it changed
   async function checkAccountStatus(fid: number, username: string, pfpUrl: string, address: string) {
     setIsLoading(true);
     try {
       const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
 
       if (data) {
-        // If the DB has a different address than what we just found (e.g. old custody vs new primary)
-        // We update the DB to match the new Primary address.
+        // Update DB if the address has changed to the new primary
         if (address && data.custody_address !== address) {
-            console.log(`🔄 Syncing Wallet via Neynar: '${address}'`);
+            console.log(`🔄 Syncing Primary Wallet: '${address}'`);
             await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
             data.custody_address = address;
         }
         setProfile(mapDataToProfile(data, pfpUrl));
       } else {
-        console.log("User not in DB. Ready to onboard.");
         setRemoteUser({ fid, username, pfp_url: pfpUrl, custody_address: address });
         setProfile(null);
       }
