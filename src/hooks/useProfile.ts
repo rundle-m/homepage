@@ -7,20 +7,26 @@ import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
 import { fetchNeynarUser } from '../lib/neynar'; 
 
-// Define the shape of the Neynar User so TS knows what to look for
-interface NeynarUser {
+// 1. Define the V2 Interface (This matches the structure your friend used)
+interface NeynarUserV2 {
     fid: number;
     username: string;
     pfp_url: string;
     custody_address: string;
-    verifications?: string[]; 
+    verified_addresses: {
+      eth_addresses: string[];
+      sol_addresses: string[];
+      primary?: {
+         eth_address?: string;
+         sol_address?: null;
+      }
+    }
 }
 
 interface FarcasterUser {
     fid: number;
     username?: string;
     pfpUrl?: string;
-    verifiedAddresses?: string[]; 
 }
 
 export function useProfile() {
@@ -54,25 +60,28 @@ export function useProfile() {
       let connectedAddress = "";
       
       if (viewerFid) {
-          setDebugAddress("Fetching from Neynar...");
+          setDebugAddress("Fetching from Neynar V2...");
           
-          const neynarUser = (await fetchNeynarUser(viewerFid)) as NeynarUser;
+          // Cast response to our V2 interface
+          const neynarUser = (await fetchNeynarUser(viewerFid)) as NeynarUserV2;
           
           if (neynarUser) {
-              const verifications = neynarUser.verifications || [];
+              const va = neynarUser.verified_addresses;
               const custody = neynarUser.custody_address;
 
               // --- 🚨 UPDATED LOGIC HERE 🚨 ---
-              // If we have verified addresses, we grab the LAST one.
-              // (verifications[0] is usually the oldest, verifications[length-1] is the newest)
-              if (verifications.length > 0) {
-                  // Get the most recent verification
-                  const mostRecent = verifications[verifications.length - 1];
-                  connectedAddress = mostRecent;
-                  
-                  // Debug: Show how many were found
-                  setDebugAddress(`Found ${verifications.length} wallets. Using: ${connectedAddress.slice(0,6)}...`); 
-              } else if (custody) {
+              // We check the 'primary' field directly, just like the SDK does.
+              if (va?.primary?.eth_address) {
+                  connectedAddress = va.primary.eth_address;
+                  setDebugAddress(`Primary (V2): ${connectedAddress.slice(0,6)}...`); 
+              } 
+              // Fallback to the list if primary is missing for some reason
+              else if (va?.eth_addresses && va.eth_addresses.length > 0) {
+                   connectedAddress = va.eth_addresses[0];
+                   setDebugAddress(`Verified List: ${connectedAddress.slice(0,6)}...`);
+              }
+              // Final fallback to custody (Vault)
+              else if (custody) {
                   connectedAddress = custody;
                   setDebugAddress(`Custody Only: ${connectedAddress.slice(0,6)}...`);
               } else {
