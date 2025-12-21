@@ -24,7 +24,13 @@ export function useProfile() {
       }
 
       if (data) {
-        setProfile(data);
+        const cleanProfile: Profile = {
+          ...data,
+          fid: data.id,
+          custom_links: data.custom_links || [], 
+          showcase_nfts: data.showcase_nfts || []
+        };
+        setProfile(cleanProfile);
       } else {
         setProfile(null); // Profile doesn't exist in our DB yet
       }
