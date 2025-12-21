@@ -9,31 +9,21 @@ interface AlchemyNFT {
   contract: {
     address: string;
     name?: string;
-    openSeaMetadata?: {
-      floorPrice?: number;
-    };
+    openSeaMetadata?: { floorPrice?: number; };
   };
-  image?: {
-    cachedUrl?: string;
-    thumbnailUrl?: string;
-    originalUrl?: string;
-  };
-  collection?: {
-    name?: string;
-  };
+  image?: { cachedUrl?: string; thumbnailUrl?: string; originalUrl?: string; };
+  collection?: { name?: string; };
 }
 
 interface AlchemyResponse {
   ownedNfts: AlchemyNFT[];
   total?: number;
+  error?: string; // Add error type
 }
 
-// Helper: Convert Alchemy data to our App's format
 function transformNFT(nft: AlchemyNFT): NFT {
   const floorPrice = nft.contract.openSeaMetadata?.floorPrice;
   const floorPriceStr = floorPrice ? `${floorPrice.toFixed(3)} ETH` : "N/A";
-  
-  // Use a fallback image if none exists
   const img = nft.image?.cachedUrl || nft.image?.thumbnailUrl || nft.image?.originalUrl || "";
 
   return {
@@ -50,36 +40,49 @@ export function useNFTs(walletAddress: string | undefined, fetchAll: boolean = f
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!walletAddress) return;
+    // If no wallet is provided, don't even try.
+    if (!walletAddress) {
+        return;
+    }
 
     const loadNFTs = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        // Decide which endpoint to hit based on 'fetchAll'
         const url = fetchAll
            ? `/api/alchemy/nfts?wallet=${walletAddress}&all=true`
            : `/api/alchemy/nfts?wallet=${walletAddress}`;
 
+        console.log(`🔍 Hook fetching: ${url}`); // Debug Log
+
         const res = await fetch(url);
+        
+        // If server fails (400/500), try to read the error text
         if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}));
-            throw new Error(errorData.error || "Failed to load NFTs");
+            const errorText = await res.text();
+            try {
+                // Try parsing as JSON first
+                const errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.error || `Server Error ${res.status}`);
+            } catch {
+                // If not JSON, use the raw text
+                throw new Error(`API Error ${res.status}: ${errorText}`);
+            }
         }
         
         const data: AlchemyResponse = await res.json();
         
-        // Transform the raw data into our clean NFT type
-        const cleanNFTs = (data.ownedNfts || []).map(transformNFT);
-        
-        // Filter out NFTs with no broken images if you want (Optional)
-        // const validNFTs = cleanNFTs.filter(n => n.imageUrl); 
+        if (data.error) {
+            throw new Error(data.error);
+        }
 
+        const cleanNFTs = (data.ownedNfts || []).map(transformNFT);
         setNfts(cleanNFTs);
-      } catch (err) {
-        console.error(err);
-        setError("Could not fetch NFTs");
+
+      } catch (err: any) {
+        console.error("Hook Error:", err);
+        setError(err.message || "Unknown Error");
       } finally {
         setIsLoading(false);
       }
