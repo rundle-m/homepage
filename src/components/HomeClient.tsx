@@ -70,6 +70,9 @@ function AppContent() {
   const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
   const borderStyle = profile.border_style || 'rounded-3xl';
 
+  // 🔍 DEBUG: Check what is actually inside the profile before rendering
+console.log("Current Showcase:", profile?.showcase_nfts);
+
   return (
     <div className={`min-h-screen pb-20 ${profile.dark_mode ? 'bg-stone-950 text-white' : 'bg-stone-50 text-stone-900'}`}>
        
