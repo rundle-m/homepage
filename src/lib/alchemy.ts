@@ -21,7 +21,7 @@ export async function fetchRecentNFTs(address: string) {
     // Map Alchemy format to our App format
     return data.ownedNfts.map((nft: any) => ({
       id: nft.tokenId,
-      name: nft.name || "Unkown NFT",
+      name: nft.name || "Unknown NFT",
       // We look for the first image URL available
       image_url: nft.image.cachedUrl || nft.image.originalUrl || "",
       collection: nft.contract.name || "Collection",

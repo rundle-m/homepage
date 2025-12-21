@@ -1,47 +1,46 @@
-"use client"; 
+"use client";
 
+import { type FC } from 'react';
+
+// 1. Define the props interface so TypeScript knows 'onLogin' is a function
 interface LandingPageProps {
-  username: string;
-  pfpUrl: string;
-  onCreate: () => void;
-  isCreating: boolean;
+  onLogin?: () => void;
 }
 
-export function LandingPage({ username, pfpUrl, onCreate, isCreating }: LandingPageProps) {
+export function LandingPage({ onLogin }: LandingPageProps) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-stone-50 text-center">
-      <div className="w-full max-w-sm bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
-        
-        {/* Animated Icon */}
-        <div className="mb-6 relative">
-          <div className="w-20 h-20 bg-violet-100 rounded-full mx-auto flex items-center justify-center text-4xl animate-bounce-slow">
-            🏠
-          </div>
-          <img 
-            src={pfpUrl} 
-            className="w-10 h-10 rounded-full border-2 border-white absolute bottom-0 right-1/3 shadow-md"
-            alt="User PFP"
-          />
-        </div>
-        
-        <h1 className="text-3xl font-black text-stone-900 mb-2 tracking-tight">Welcome Home</h1>
-        <p className="text-stone-500 mb-8 leading-relaxed">
-          Hi <span className="font-bold text-stone-700">@{username}</span>! <br/>
-          It looks like you're new here. Let's build your onchain corner of the internet.
-        </p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-stone-950 text-white p-6 text-center animate-in fade-in duration-700">
+      
+      {/* Decorative Gradient Blob */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-violet-600/20 rounded-full blur-[100px] -z-10" />
 
-        <button 
-          onClick={onCreate}
-          disabled={isCreating}
-          className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-violet-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-        >
-          {isCreating ? 'Building...' : 'Create My Space'}
-        </button>
-        
-        <p className="text-[10px] text-stone-400 mt-6 uppercase tracking-widest">
-            Farcaster Native
-        </p>
-      </div>
+      {/* Main Content */}
+      <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-br from-white to-stone-400 bg-clip-text text-transparent">
+        NFT Gallery
+      </h1>
+      
+      <p className="text-stone-400 mb-8 max-w-sm leading-relaxed">
+        Curate your digital collectibles and share your collection with Farcaster.
+      </p>
+      
+      {/* Login Button */}
+      <button 
+        onClick={onLogin}
+        className="group relative px-8 py-3 bg-violet-600 rounded-full font-bold text-white shadow-lg shadow-violet-500/30 hover:bg-violet-500 hover:shadow-violet-500/50 hover:-translate-y-0.5 transition-all duration-200"
+      >
+        <span className="relative z-10 flex items-center gap-2">
+          {/* Farcaster Logo Icon (Simple SVG) */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm0-2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+          </svg>
+          Connect Farcaster
+        </span>
+      </button>
+
+      {/* Footer / Disclaimer */}
+      <p className="absolute bottom-8 text-xs text-stone-600">
+        Powered by Alchemy & Neynar
+      </p>
     </div>
   );
 }

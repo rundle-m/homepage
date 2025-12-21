@@ -1,214 +1,83 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation'; 
-import sdk from "@farcaster/miniapp-sdk";
+import { useState, useEffect, useMemo } from 'react';
+import sdk from "@farcaster/miniapp-sdk"; 
+import { supabase } from '../lib/supabaseClient'; // Verify this path matches your file structure
 import type { Profile } from '../types/types';
-import { supabase } from '../lib/supabaseClient';
-import { fetchNeynarUser } from '../lib/neynar'; 
-
-// 1. Define the V2 Interface (This matches the structure your friend used)
-interface NeynarUserV2 {
-    fid: number;
-    username: string;
-    pfp_url: string;
-    custody_address: string;
-    verified_addresses: {
-      eth_addresses: string[];
-      sol_addresses: string[];
-      primary?: {
-         eth_address?: string;
-         sol_address?: null;
-      }
-    }
-}
-
-interface FarcasterUser {
-    fid: number;
-    username?: string;
-    pfpUrl?: string;
-}
 
 export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [remoteUser, setRemoteUser] = useState<{ 
-    fid: number, 
-    username: string, 
-    pfp_url: string,
-    custody_address: string 
-  } | null>(null);
-  
+  const [remoteUser, setRemoteUser] = useState<{ fid: number; username?: string; pfpUrl?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-  
-  // Debug state
-  const [debugAddress, setDebugAddress] = useState<string>("Initializing...");
 
-  const searchParams = useSearchParams();
-  const urlFid = searchParams.get('fid');
+  // Helper: Fetch a profile from Supabase
+  const fetchProfile = async (fid: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', fid)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+      }
+
+      if (data) {
+        setProfile(data);
+      } else {
+        setProfile(null); // Profile doesn't exist in our DB yet
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
-      try { await sdk.actions.ready(); } catch (e) { console.error(e); }
-      
+      // 1. Get the "Viewer" (The person holding the phone)
       const context = await sdk.context;
-      const user = context?.user as FarcasterUser | undefined;
-      const viewerFid = user?.fid;
+      const viewerFid = context?.user?.fid;
       
-      // 1. DETERMINE WALLET ADDRESS
-      let connectedAddress = "";
+      // 2. Check the URL for a "Target" (The profile we want to see)
+      const params = new URLSearchParams(window.location.search);
+      const urlFid = params.get('fid');
+
+      // 3. Decide who to load (URL > Logged In User)
+      const targetFid = urlFid ? parseInt(urlFid) : viewerFid;
+
+      if (targetFid) {
+        await fetchProfile(targetFid);
+      }
       
+      // 4. Set "Viewer" details
       if (viewerFid) {
-          setDebugAddress("Fetching from Neynar V2...");
-          
-          // Cast response to our V2 interface
-          const neynarUser = (await fetchNeynarUser(viewerFid)) as NeynarUserV2;
-          
-          if (neynarUser) {
-              const va = neynarUser.verified_addresses;
-              const custody = neynarUser.custody_address;
-
-              // --- 🚨 UPDATED LOGIC HERE 🚨 ---
-              // We check the 'primary' field directly, just like the SDK does.
-              if (va?.primary?.eth_address) {
-                  connectedAddress = va.primary.eth_address;
-                  setDebugAddress(`Primary (V2): ${connectedAddress.slice(0,6)}...`); 
-              } 
-              // Fallback to the list if primary is missing for some reason
-              else if (va?.eth_addresses && va.eth_addresses.length > 0) {
-                   connectedAddress = va.eth_addresses[0];
-                   setDebugAddress(`Verified List: ${connectedAddress.slice(0,6)}...`);
-              }
-              // Final fallback to custody (Vault)
-              else if (custody) {
-                  connectedAddress = custody;
-                  setDebugAddress(`Custody Only: ${connectedAddress.slice(0,6)}...`);
-              } else {
-                  setDebugAddress("No ETH address found.");
-              }
-          } 
-      } else {
-          setDebugAddress("No Viewer FID (Localhost?)");
+        setRemoteUser({
+          fid: viewerFid,
+          username: context?.user?.username,
+          pfpUrl: context?.user?.pfpUrl,
+        });
       }
-
-      // 2. LOGIC FLOW
-      if (urlFid) {
-        // --- VISITOR MODE ---
-        const targetFid = parseInt(urlFid);
-        await fetchProfileOnly(targetFid);
-        
-        setIsOwner(!!(viewerFid && viewerFid === targetFid));
-
-        if (viewerFid && user) {
-             setRemoteUser({ 
-                fid: viewerFid, 
-                username: user.username || 'unknown', 
-                pfp_url: user.pfpUrl || '',
-                custody_address: connectedAddress 
-             });
-        }
-
-      } else if (viewerFid) {
-        // --- OWNER MODE ---
-        setIsOwner(true);
-        await checkAccountStatus(
-            viewerFid, 
-            user?.username || 'unknown', 
-            user?.pfpUrl || '',
-            connectedAddress 
-        );
-      } else {
-        setIsOwner(true);
-        setIsLoading(false);
-      }
+      
+      // 5. Hide Splash Screen
+      sdk.actions.ready();
+      setIsLoading(false);
     };
 
     init();
-  }, [urlFid]);
+  }, []);
 
-  async function checkAccountStatus(fid: number, username: string, pfpUrl: string, address: string) {
-    setIsLoading(true);
-    try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
-
-      if (data) {
-        // Update DB if the address has changed to the new primary
-        if (address && data.custody_address !== address) {
-            console.log(`🔄 Syncing Primary Wallet: '${address}'`);
-            await supabase.from('profiles').update({ custody_address: address }).eq('id', fid);
-            data.custody_address = address;
-        }
-        setProfile(mapDataToProfile(data, pfpUrl));
-      } else {
-        setRemoteUser({ fid, username, pfp_url: pfpUrl, custody_address: address });
-        setProfile(null);
-      }
-    } catch (err) { console.error(err); } 
-    finally { setIsLoading(false); }
-  }
-  
-  async function fetchProfileOnly(fid: number) {
-    setIsLoading(true);
-    try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', fid).single();
-      if (data) setProfile(mapDataToProfile(data));
-      else setProfile(null); 
-    } catch (err) { console.error(err); } 
-    finally { setIsLoading(false); }
-  }
-
-  function mapDataToProfile(data: any, freshPfp?: string): Profile {
-      return { ...data, fid: data.id, pfp_url: freshPfp || data.pfp_url } as Profile;
-  }
-
-  const createAccount = async () => {
-    if (!remoteUser) return;
-    setIsLoggingIn(true);
-    
-    const newProfile: Profile = {
-      fid: remoteUser.fid,
-      username: remoteUser.username,
-      display_name: remoteUser.username,
-      pfp_url: remoteUser.pfp_url,
-      custody_address: remoteUser.custody_address,
-      banner_url: "",
-      bio: 'Onchain Explorer',
-      custom_links: [], showcase_nfts: [],
-      dark_mode: false, theme_color: 'violet', border_style: 'rounded-3xl',
-    };
-    
-    const { error } = await supabase.from('profiles').upsert({
-        id: newProfile.fid,
-        username: newProfile.username,
-        display_name: newProfile.display_name,
-        pfp_url: newProfile.pfp_url,
-        custody_address: newProfile.custody_address,
-        custom_links: [],
-        showcase_nfts: []
-    });
-
-    if (error) {
-        alert(`Creation Failed: ${error.message}`);
-    } else {
-        setProfile(newProfile);
-        setIsOwner(true);
-        window.history.replaceState({}, '', window.location.pathname);
-    }
-    
-    setIsLoggingIn(false);
-  };
-
+  // 6. Robust Update Function
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!profile) return;
     
-    // 1. Update Local State (Instant Feedback)
+    // Optimistic Update
     const newProfile = { ...profile, ...updates };
     setProfile(newProfile);
 
-    // 2. Prepare Safe Data for DB
+    // Database Update
     const dbPayload = {
-        id: profile.fid,
+        id: profile.fid, // Ensure we use FID as the ID
         username: newProfile.username,
         display_name: newProfile.display_name,
         pfp_url: newProfile.pfp_url,
@@ -217,13 +86,10 @@ export function useProfile() {
         banner_url: newProfile.banner_url,
         theme_color: newProfile.theme_color,
         border_style: newProfile.border_style,
-        
-        // Ensure we save the sanitized NFTs
         showcase_nfts: updates.showcase_nfts || profile.showcase_nfts,
         custom_links: updates.custom_links || profile.custom_links
     };
 
-    // 3. Send to Supabase
     const { error } = await supabase.from('profiles').upsert(dbPayload);
     
     if (error) {
@@ -233,21 +99,61 @@ export function useProfile() {
     }
   };
 
-  const switchToMyProfile = () => {
-      window.history.replaceState({}, '', window.location.pathname);
-      window.location.reload();
+  // Login Helper
+  const login = async () => {
+    const context = await sdk.context;
+    if (context?.user?.fid) {
+       // If logging in, we want to see OUR profile, not the shared URL one
+       window.history.replaceState(null, '', window.location.pathname); 
+       await fetchProfile(context.user.fid);
+    }
   };
 
+  // Create Account Helper (Fixed Duplicate Issue)
+  const createAccount = async () => {
+    const context = await sdk.context;
+    if (!context?.user?.fid) return;
+
+    // 1. Create the Local Profile object
+    const newProfile: Profile = {
+        fid: context.user.fid,
+        username: context.user.username || 'user',
+        display_name: context.user.displayName || 'User',
+        pfp_url: context.user.pfpUrl || '',
+        custody_address: (context.user as any).verifications?.[0] || '', 
+        bio: 'Just joined!',
+        theme_color: 'violet',
+        border_style: 'rounded-3xl',
+        showcase_nfts: [],
+        custom_links: [],  
+        dark_mode: false 
+    };
+
+    // 2. Insert into Supabase
+    const { error } = await supabase.from('profiles').insert({
+        ...newProfile,
+        id: newProfile.fid, // Map FID to DB ID
+    });
+
+    if (!error) {
+        setProfile(newProfile);
+    } else {
+        console.error("Create account error:", error);
+    }
+  };
+
+  const isOwner = useMemo(() => {
+     if (!profile || !remoteUser) return false;
+     return String(profile.fid) === String(remoteUser.fid);
+  }, [profile, remoteUser]);
+
   return { 
-      profile, 
-      remoteUser, 
-      isLoading, 
-      isOwner, 
-      isLoggingIn, 
-      login: checkAccountStatus, 
-      createAccount, 
-      updateProfile, 
-      switchToMyProfile,
-      debugAddress
+    profile, 
+    remoteUser, 
+    isLoading, 
+    isOwner, 
+    updateProfile,
+    login,
+    createAccount 
   };
 }

@@ -1,225 +1,159 @@
 "use client";
 
-import { useState, Suspense } from 'react';
+import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
-import { LoginScreen } from './LoginScreen';
-import { ProjectList } from './ProjectList';
-import { ThemePicker } from './ThemePicker';
-import { Grid } from './Grid'; 
 import { LandingPage } from './LandingPage';
-import { NFTPicker } from '../components/NFTPicker'; 
-import type { Link, NFT } from '../types/types';
+import { Grid } from './Grid';
+import { UserHeader } from './UserHeader'; // We just created this!
+import { ThemePicker } from './ThemePicker';
+import { NFTPicker } from './NFTPicker'; 
+import type { Profile } from '../types/types'; 
 
-const THEME_MAP: Record<string, string> = {
-  violet: 'from-violet-600 to-indigo-600',
-  blue: 'from-blue-500 to-cyan-500',
-  emerald: 'from-emerald-500 to-teal-500',
-  rose: 'from-rose-500 to-pink-500',
-  amber: 'from-amber-500 to-orange-500',
-  stone: 'from-stone-600 to-stone-800',
-};
-
-function AppContent() {
-  const { 
-    profile, remoteUser, isLoading, isOwner, isLoggingIn, 
-    login, createAccount, updateProfile, switchToMyProfile, debugAddress
-  } = useProfile();
-  
-  const [isEditing, setIsEditing] = useState(false);
-  const [isPickingNFTs, setIsPickingNFTs] = useState(false);
-
-    // Debug
-  const [diaLog, setDiaLog] = useState("Waiting for SDK...");
-
-  const handleShare = () => {
-    if (!profile) return;
-    // Use window.location.origin to be dynamic, or your hardcoded URL
-    const baseUrl = window.location.origin; 
-    const shareUrl = `${baseUrl}?fid=${profile.fid}`;
-    const text = `Check out my Onchain Home! 🏠`;
-    const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
-    window.open(warpcastUrl, '_blank');
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 text-stone-400">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="h-12 w-12 bg-stone-200 rounded-full mb-4"></div>
-          <p className="text-xs font-bold tracking-widest opacity-50">LOADING HOME</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile && remoteUser && isOwner) {
-    return (
-      <LandingPage 
-        username={remoteUser.username}
-        pfpUrl={remoteUser.pfp_url}
-        onCreate={createAccount}
-        isCreating={isLoggingIn}
-      />
-    );
-  }
-
-  if (!profile) {
-    return <LoginScreen onLogin={(fid) => login(fid, 'user', '', '')} isLoggingIn={isLoggingIn} />;
-  }
-
-  const themeGradient = THEME_MAP[profile.theme_color || 'violet'];
-  const borderStyle = profile.border_style || 'rounded-3xl';
-
+// Simple Loading Spinner
+function Loading() {
   return (
-    <div className={`min-h-screen pb-20 ${profile.dark_mode ? 'bg-stone-950 text-white' : 'bg-stone-50 text-stone-900'}`}>
-       
-       {/* HEADER */}
-       <div className={`h-40 relative group overflow-hidden`}>
-          <div className={`absolute inset-0 bg-gradient-to-r ${themeGradient} transition-all duration-500`} />
-          {profile.banner_url && (
-            <img src={profile.banner_url} alt="Banner" className="absolute inset-0 w-full h-full object-cover opacity-90"/>
-          )}
-          {isOwner && !isEditing && (
-             <button 
-               onClick={() => setIsEditing(true)} 
-               className="absolute top-4 right-4 bg-black/40 text-white px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-md hover:bg-black/60 transition border border-white/10"
-             >
-               Edit Profile
-             </button>
-          )}
-       </div>    
-
-       {/* PROFILE CARD */}
-       <div className="px-6 relative -mt-16 text-center">
-          <img 
-            src={profile.pfp_url} 
-            alt={profile.username}
-            className={`w-32 h-32 mx-auto border-4 border-white dark:border-stone-900 shadow-xl bg-stone-200 object-cover ${borderStyle}`} 
-          />
-          <h1 className="text-2xl font-black mt-4">{profile.display_name}</h1>
-          <p className="text-stone-500">@{profile.username}</p>
-          <p className="mt-2 text-sm opacity-80 max-w-xs mx-auto">{profile.bio}</p>
-       </div>
-
-        {/* NFT EDIT BUTTON (Only for owner) */}
-       {isOwner && (
-          <div className="px-6 mb-2 flex justify-end">
-             <button 
-               onClick={() => setIsPickingNFTs(true)}
-               className="text-xs font-bold text-violet-600 bg-violet-50 dark:bg-violet-900/30 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition"
-             >
-               + Edit Showcase
-             </button>
-          </div>
-       )}
-
-       {/* CONTENT */}
-       <Grid 
-         nfts={profile.showcase_nfts || []}
-         isOwner={isOwner}
-         onUpdate={(newNFTs) => updateProfile({ showcase_nfts: newNFTs })}
-         borderStyle={borderStyle}
-         walletAddress={profile.custody_address}
-
-       />
-       <ProjectList 
-          links={profile.custom_links || []} 
-          isOwner={isOwner}
-          onUpdate={(newLinks) => updateProfile({ custom_links: newLinks })} 
-       />
-
-       {/* CTA BUTTONS */}
-       <div className="fixed bottom-6 left-0 right-0 px-6 z-40 pointer-events-none">
-          <div className="pointer-events-auto">
-            {!isOwner && (
-               <button 
-                 onClick={switchToMyProfile}
-                 className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-violet-200/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-               >
-                 ✨ Create Your Own Space
-               </button>
-            )}
-            {isOwner && (
-               <button 
-                 onClick={handleShare}
-                 className="w-full py-4 bg-white dark:bg-stone-800 text-stone-900 dark:text-white border border-stone-200 dark:border-stone-700 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-               >
-                 📤 Share Profile
-               </button>
-            )}
-          </div>
-       </div>
-
-       <div className="mt-12 py-8 text-center border-t border-stone-200 dark:border-stone-800 pb-32">
-         <p className="text-stone-300 text-xs font-mono uppercase tracking-widest">
-           Onchain Home v2.8
-         </p>
-       </div>
-
-       {/* EDIT OVERLAY (Themes, Bio, etc.) */}
-       {isEditing && (
-          <div className="fixed inset-0 bg-white dark:bg-stone-900 z-50 flex flex-col animate-in slide-in-from-bottom-10">
-             <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
-                <h2 className="text-xl font-bold">Customize Look</h2>
-                <button onClick={() => setIsEditing(false)} className="text-stone-400 hover:text-stone-900 dark:hover:text-white font-bold">Done</button>
-             </div>
-             <div className="p-6 space-y-8 overflow-y-auto flex-1">
-                <ThemePicker 
-                  currentTheme={profile.theme_color || 'violet'}
-                  currentBorder={profile.border_style || 'rounded-3xl'}
-                  onUpdate={updateProfile}
-                />
-                <hr className="border-stone-100 dark:border-stone-800" />
-                <div className="space-y-4">
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Banner Image URL</label>
-                      <input 
-                        value={profile.banner_url || ""} 
-                        onChange={e => updateProfile({ banner_url: e.target.value })} 
-                        placeholder="https://..."
-                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Display Name</label>
-                      <input 
-                        value={profile.display_name} 
-                        onChange={e => updateProfile({ display_name: e.target.value })} 
-                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 uppercase mb-1 block">Bio</label>
-                      <textarea 
-                        value={profile.bio} 
-                        onChange={e => updateProfile({ bio: e.target.value })} 
-                        className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl h-24 outline-none resize-none" 
-                      />
-                    </div>
-                 </div>
-             </div>
-          </div>
-       )}
-
-       {/* NFT PICKER OVERLAY (New!) */}
-       {isPickingNFTs && profile && (
-          <NFTPicker 
-             walletAddress={profile.custody_address} 
-             currentSelection={profile.showcase_nfts || []}
-             onClose={() => setIsPickingNFTs(false)}
-             onUpdate={(newNFTs) => {
-                updateProfile({ showcase_nfts: newNFTs });
-             }}
-          />
-       )}
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-stone-950">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-800 dark:border-white"></div>
     </div>
   );
 }
 
 export default function HomeClient() {
+  return <AppContent />;
+}
+
+function AppContent() {
+  const { 
+    profile, remoteUser, isLoading, isOwner, 
+    login, createAccount, updateProfile 
+  } = useProfile();
+  
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isPickingNFTs, setIsPickingNFTs] = useState(false);
+
+  // 1. Loading State
+  if (isLoading) return <Loading />;
+
+  // 2. Landing Page
+  // Show if: No profile loaded AND user isn't logged in
+  if (!profile && !remoteUser) {
+     return <LandingPage onLogin={login} />;
+  }
+
+  // 3. Create Account
+  // Show if: User logged in, but has no profile yet
+  if (!profile && remoteUser) {
+     return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+           <h2 className="text-2xl font-bold mb-2">Welcome, {remoteUser.username}!</h2>
+           <p className="text-stone-500 mb-6">Let's set up your gallery.</p>
+           <button 
+             onClick={createAccount}
+             className="bg-violet-600 text-white px-8 py-3 rounded-full font-bold shadow-lg"
+           >
+             Create Profile
+           </button>
+        </div>
+     );
+  }
+
+  // 4. Main Profile View (If we have a profile)
+  if (profile) {
     return (
-      <Suspense fallback={<div>Loading...</div>}>
-        <AppContent />
-      </Suspense>
+      <div className={`min-h-screen pb-20 bg-white dark:bg-stone-950 text-stone-900 dark:text-white theme-${profile.theme_color || 'violet'}`}>
+         
+         {/* HEADER SECTION */}
+         <UserHeader 
+            profile={profile}
+            isOwner={isOwner}
+            onEditProfile={() => setIsEditingProfile(true)}
+         />
+
+         {/* SHOWCASE SECTION */}
+         <div className="mt-8">
+            <div className="px-6 flex justify-between items-end mb-4">
+               <h3 className="font-bold text-lg">Showcase</h3>
+               {isOwner && (
+                 <button 
+                   onClick={() => setIsPickingNFTs(true)}
+                   className="text-xs font-bold text-violet-600 bg-violet-50 dark:bg-violet-900/30 px-3 py-1.5 rounded-lg"
+                 >
+                   + Edit
+                 </button>
+               )}
+            </div>
+            
+            <Grid 
+              nfts={profile.showcase_nfts || []}
+              isOwner={isOwner}
+              borderStyle={profile.border_style}
+            />
+         </div>
+
+         {/* MODALS */}
+         
+         {/* 1. Theme/Bio Editor */}
+         {isEditingProfile && (
+            <div className="fixed inset-0 bg-white dark:bg-stone-900 z-50 flex flex-col animate-in slide-in-from-bottom-10">
+               <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+                  <h2 className="text-xl font-bold">Edit Profile</h2>
+                  <button onClick={() => setIsEditingProfile(false)} className="font-bold text-stone-500">Done</button>
+               </div>
+               <div className="p-6 space-y-6 overflow-y-auto flex-1">
+                  {/* Theme Picker Component */}
+                  <ThemePicker 
+                    currentTheme={profile.theme_color || 'violet'}
+                    currentBorder={profile.border_style || 'rounded-3xl'}
+                    onUpdate={updateProfile}
+                  />
+                  
+                  {/* Text Inputs */}
+                  <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 uppercase block mb-1">Display Name</label>
+                        <input 
+                          value={profile.display_name || ''} 
+                          onChange={e => updateProfile({ display_name: e.target.value })} 
+                          className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 uppercase block mb-1">Bio</label>
+                        <textarea 
+                          value={profile.bio || ''} 
+                          onChange={e => updateProfile({ bio: e.target.value })} 
+                          className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl h-24 outline-none resize-none" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 uppercase block mb-1">Banner Image URL</label>
+                        <input 
+                          value={profile.banner_url || ''} 
+                          onChange={e => updateProfile({ banner_url: e.target.value })} 
+                          placeholder="https://..."
+                          className="w-full p-3 bg-stone-100 dark:bg-stone-800 rounded-xl outline-none text-sm" 
+                        />
+                      </div>
+                   </div>
+               </div>
+            </div>
+         )}
+
+         {/* 2. NFT Picker */}
+         {isPickingNFTs && profile.custody_address && (
+            <NFTPicker 
+               walletAddress={profile.custody_address} 
+               currentSelection={profile.showcase_nfts || []}
+               onClose={() => setIsPickingNFTs(false)}
+               onUpdate={(newNFTs) => {
+                  updateProfile({ showcase_nfts: newNFTs });
+               }}
+            />
+         )}
+      </div>
     );
+  }
+
+  // Fallback
+  return <Loading />;
 }
