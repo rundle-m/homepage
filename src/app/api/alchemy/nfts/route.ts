@@ -9,15 +9,8 @@ const ALCHEMY_ENDPOINTS: Record<string, string> = {
   zora: `https://zora-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}`,
 };
 
-interface AlchemyNFT {
-  tokenId: string;
-  name?: string;
-  contract: { address: string };
-  [key: string]: unknown;
-}
-
-// Timeout helper (3 seconds is plenty for a single page)
-async function fetchWithTimeout(url: string, timeout = 3000) {
+// Helper: Timeout after 8 seconds (gave it more breathing room)
+async function fetchWithTimeout(url: string, timeout = 8000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -32,18 +25,24 @@ async function fetchWithTimeout(url: string, timeout = 3000) {
 
 async function fetchChainNFTs(endpoint: string, wallet: string, chain: string) {
   try {
-      // 1. We only ask for ONE page (pageSize=100)
-      // This makes the request fast and prevents timeouts.
+      // Log that we are starting
+      console.log(`🔹 Fetching ${chain}...`);
+      
       const url = `${endpoint}/getNFTsForOwner?owner=${wallet}&withMetadata=true&pageSize=100`;
       
       const response = await fetchWithTimeout(url);
-      if (!response.ok) return [];
+      
+      if (!response.ok) {
+          console.error(`❌ ${chain} Error: ${response.status}`);
+          return [];
+      }
 
       const data = await response.json();
+      console.log(`✅ ${chain} found: ${data.ownedNfts?.length || 0} NFTs`);
       return data.ownedNfts || [];
   } catch (err) {
-      console.error(`Skipping ${chain}:`, err);
-      return [];
+      console.error(`⚠️ ${chain} Timed Out or Failed:`, err);
+      return []; // Return empty list instead of crashing
   }
 }
 
@@ -52,11 +51,19 @@ export async function GET(request: NextRequest) {
   const wallet = searchParams.get("wallet");
   const fetchAll = searchParams.get("all") === "true";
 
-  if (!wallet) return NextResponse.json({ error: "No wallet" }, { status: 400 });
-  if (!ALCHEMY_API_KEY) return NextResponse.json({ error: "No API Key" }, { status: 500 });
+  // 1. Validate Inputs
+  if (!wallet) {
+      console.error("❌ No wallet provided");
+      return NextResponse.json({ error: "No wallet" }, { status: 400 });
+  }
+  if (!ALCHEMY_API_KEY) {
+      console.error("❌ No Alchemy Key in .env");
+      return NextResponse.json({ error: "No API Key" }, { status: 500 });
+  }
 
   try {
     const chains = ["base", "ethereum", "zora"];
+    console.log(`🚀 Starting fetch for ${wallet.slice(0,6)}...`);
 
     // Run all 3 fetches at the same time
     const results = await Promise.all(
@@ -65,17 +72,13 @@ export async function GET(request: NextRequest) {
 
     // Combine them all into one big list
     const allNfts = results.flat();
+    console.log(`🏁 Total NFTs found: ${allNfts.length}`);
     
-    // If "fetchAll", return everything we found (up to 300 items)
-    if (fetchAll) {
-        return NextResponse.json({ ownedNfts: allNfts, total: allNfts.length });
-    } 
-    
-    // If generic fetch (for the home page), just return top 6
-    const limitedNfts = allNfts.slice(0, 6);
-    return NextResponse.json({ ownedNfts: limitedNfts, total: allNfts.length });
+    // Always return 200 OK, even if list is empty
+    return NextResponse.json({ ownedNfts: allNfts, total: allNfts.length });
 
   } catch (error) {
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+    console.error("🔥 CRITICAL API ERROR:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
