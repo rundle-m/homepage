@@ -63,7 +63,10 @@ export function useNFTs(walletAddress: string | undefined, fetchAll: boolean = f
            : `/api/alchemy/nfts?wallet=${walletAddress}`;
 
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to load NFTs");
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || "Failed to load NFTs");
+        }
         
         const data: AlchemyResponse = await res.json();
         
