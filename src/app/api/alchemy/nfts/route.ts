@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Force this route to be dynamic so it doesn't cache old errors
 export const dynamic = 'force-dynamic';
 
-const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY;
 
 // Alchemy endpoints
 const ALCHEMY_ENDPOINTS: Record<string, string> = {
