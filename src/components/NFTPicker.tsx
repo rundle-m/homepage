@@ -80,10 +80,6 @@ export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }
         <div className="flex justify-between items-center mb-4">
           <div>
              <h2 className="text-lg font-bold">Select NFTs</h2>
-             {/* DEBUG: Shows scanning status */}
-             <p className="text-[10px] font-mono text-stone-400 break-all">
-                Scanning: {walletAddress || "UNDEFINED"}
-             </p>
           </div>
           <div className="flex gap-2">
              <button onClick={onClose} className="px-4 py-2 text-sm font-bold text-stone-500 hover:text-stone-800">Cancel</button>
