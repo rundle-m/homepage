@@ -12,7 +12,7 @@ interface NFTPickerProps {
 }
 
 export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }: NFTPickerProps) {
-  // 1. Fetch NFTs (This now returns the most recent ~300 items quickly)
+  // 1. Fetch NFTs (Returns ~300 items quickly)
   const { nfts: allNfts, isLoading, error } = useNFTs(walletAddress, true);
   
   const [selectedIds, setSelectedIds] = useState<string[]>(
@@ -33,7 +33,7 @@ export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }
       const matchName = nft.name && nft.name.toLowerCase().includes(lowerQuery);
       // Check Collection (e.g. "FIDPunks")
       const matchCollection = nft.collection && nft.collection.toLowerCase().includes(lowerQuery);
-      // Check ID (e.g. "44") - Useful if you just type the number
+      // Check ID (e.g. "44")
       const matchId = nft.id.toLowerCase().includes(lowerQuery);
       
       return matchName || matchCollection || matchId;
@@ -53,8 +53,22 @@ export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }
   };
 
   const handleSave = () => {
-    const newSelection = allNfts.filter(nft => selectedIds.includes(nft.id));
-    onUpdate(newSelection);
+    // 1. Get the raw selected objects from the big list
+    const rawSelection = allNfts.filter(nft => selectedIds.includes(nft.id));
+    
+    // 2. 🛡️ SANITIZE & STANDARDIZE
+    // We strictly map to 'image_url' to match your DB and Type definition.
+    // We removed floorPrice as requested.
+    const cleanSelection: NFT[] = rawSelection.map(nft => ({
+        id: nft.id,
+        name: nft.name || "Untitled NFT",
+        collection: nft.collection || "Unknown Collection",
+        // 👇 CRITICAL: Ensures this matches the 'image_url' expected by the Grid and DB
+        image_url: nft.image_url || "", 
+    }));
+
+    // 3. Update parent
+    onUpdate(cleanSelection);
     onClose();
   };
 
@@ -66,6 +80,7 @@ export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }
         <div className="flex justify-between items-center mb-4">
           <div>
              <h2 className="text-lg font-bold">Select NFTs</h2>
+             {/* DEBUG: Shows scanning status */}
              <p className="text-[10px] font-mono text-stone-400 break-all">
                 Scanning: {walletAddress || "UNDEFINED"}
              </p>
@@ -125,7 +140,7 @@ export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }
                        ${isSelected ? 'border-violet-500 shadow-xl shadow-violet-500/20 scale-95' : 'border-transparent hover:border-stone-300 dark:hover:border-stone-700'}
                      `}
                    >
-                     {/* Image */}
+                     {/* Image Display - Using image_url */}
                      {nft.image_url ? (
                        <img src={nft.image_url} alt={nft.name} loading="lazy" className="w-full h-full object-cover" />
                      ) : (
@@ -137,7 +152,7 @@ export function NFTPicker({ walletAddress, currentSelection, onUpdate, onClose }
                         {isSelected && <span className="text-xs font-bold">✓</span>}
                      </div>
 
-                     {/* 🏷️ UPDATED LABEL: Shows Name AND Collection */}
+                     {/* Label: Name & Collection */}
                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-6">
                         <p className="text-white text-[10px] font-bold truncate">
                           {nft.name}

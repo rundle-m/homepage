@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation'; 
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 import type { Profile } from '../types/types';
 import { supabase } from '../lib/supabaseClient';
 import { fetchNeynarUser } from '../lib/neynar'; 
@@ -201,12 +201,36 @@ export function useProfile() {
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!profile) return;
-    setProfile({ ...profile, ...updates });
-    await supabase.from('profiles').upsert({ 
-        id: profile.fid, 
-        ...profile,
-        ...updates 
-    });
+    
+    // 1. Update Local State (Instant Feedback)
+    const newProfile = { ...profile, ...updates };
+    setProfile(newProfile);
+
+    // 2. Prepare Safe Data for DB
+    const dbPayload = {
+        id: profile.fid,
+        username: newProfile.username,
+        display_name: newProfile.display_name,
+        pfp_url: newProfile.pfp_url,
+        custody_address: newProfile.custody_address,
+        bio: newProfile.bio,
+        banner_url: newProfile.banner_url,
+        theme_color: newProfile.theme_color,
+        border_style: newProfile.border_style,
+        
+        // Ensure we save the sanitized NFTs
+        showcase_nfts: updates.showcase_nfts || profile.showcase_nfts,
+        custom_links: updates.custom_links || profile.custom_links
+    };
+
+    // 3. Send to Supabase
+    const { error } = await supabase.from('profiles').upsert(dbPayload);
+    
+    if (error) {
+        console.error("❌ Supabase Save Failed:", error.message);
+    } else {
+        console.log("✅ Saved to DB!");
+    }
   };
 
   const switchToMyProfile = () => {
