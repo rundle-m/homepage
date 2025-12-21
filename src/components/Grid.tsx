@@ -1,89 +1,67 @@
-"use client";
-
-import { useState, useEffect } from 'react';
-import { fetchRecentNFTs } from '../lib/alchemy';
+import type { NFT } from '../types/types';
 
 interface GridProps {
-  nfts: any[]; 
+  nfts: NFT[];
   isOwner: boolean;
-  onUpdate: (nfts: any[]) => void;
-  borderStyle: string;
+  onUpdate?: (nfts: NFT[]) => void;
+  borderStyle?: string;
   walletAddress?: string;
 }
 
-export function Grid({ nfts: manualNfts, isOwner, onUpdate, borderStyle, walletAddress }: GridProps) {
-  const [displayNfts, setDisplayNfts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [debugStatus, setDebugStatus] = useState("Initializing...");
-
-  useEffect(() => {
-    const loadNFTs = async () => {
-        // 1. Report what we see
-        if (!walletAddress) {
-            setDebugStatus("🔴 No Wallet Address passed to Grid.");
-            setDisplayNfts(manualNfts || []);
-            return;
-        }
-
-        setDebugStatus(`🟡 Found Address: ${walletAddress.slice(0, 6)}... Fetching...`);
-        setLoading(true);
-
-        // 2. Try to Fetch
-        const autoNfts = await fetchRecentNFTs(walletAddress);
-        
-        // 3. Report results
-        if (autoNfts.length > 0) {
-            setDebugStatus(`🟢 Success! Found ${autoNfts.length} NFTs.`);
-            setDisplayNfts(autoNfts);
-        } else {
-            setDebugStatus(`🟠 Alchemy returned 0 NFTs (or API failed).`);
-            setDisplayNfts(manualNfts || []); // Fallback
-        }
-        setLoading(false);
-    };
-
-    loadNFTs();
-  }, [walletAddress, manualNfts]);
+export function Grid({ nfts, isOwner, onUpdate, borderStyle }: GridProps) {
+  
+  // If the list is empty (or null), show the "Empty State" placeholder
+  if (!nfts || nfts.length === 0) {
+    return (
+      <div className="px-6 py-12 text-center">
+        <div className="p-6 bg-stone-100 dark:bg-stone-900 rounded-3xl border-2 border-dashed border-stone-200 dark:border-stone-800">
+           <p className="text-stone-400 font-bold text-sm">No NFTs Selected</p>
+           {isOwner && <p className="text-stone-300 text-xs mt-1">Click "Edit Showcase" to pick some!</p>}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-6 mt-8">
-      {/* 🛠️ VISIBLE DEBUGGER (Remove later) */}
-      <div className="bg-stone-900 text-stone-400 text-[10px] font-mono p-2 rounded mb-4 break-all">
-        DEBUG: {debugStatus} <br/>
-        PROP: {walletAddress || "Undefined"}
-      </div>
-
-      <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">
-        Recent Collectibles
-      </h3>
-      
-      {loading && (
-         <div className="p-6 text-center">
-            <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">Scanning...</p>
-        </div>
-      )}
-
-      {!loading && displayNfts.length > 0 && (
-          <div className="grid grid-cols-2 gap-4">
-            {displayNfts.map((nft, i) => (
-            <div key={`${nft.contract_address}-${i}`} className={`relative aspect-square bg-stone-100 dark:bg-stone-800 overflow-hidden shadow-sm ${borderStyle}`}>
+    <div className="px-4 pb-10">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {nfts.map((nft) => {
+          // 🛡️ SAFE CHECK: Handle both old (imageUrl) and new (image_url) formats
+          // This creates a "validImage" variable that works no matter what the DB sends
+          const validImage = nft.image_url || nft.image_url || "";
+          
+          return (
+            <div 
+              key={nft.id} 
+              className={`relative aspect-square overflow-hidden bg-stone-200 dark:bg-stone-800 shadow-sm ${borderStyle || 'rounded-3xl'}`}
+            >
+              {validImage ? (
                 <img 
-                src={nft.image_url} 
-                alt={nft.name} 
-                className="w-full h-full object-cover"
+                  src={validImage} 
+                  alt={nft.name || "NFT"} 
+                  className="w-full h-full object-cover transition hover:scale-105 duration-500"
+                  loading="lazy"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
-                    <p className="text-white text-xs font-bold truncate">{nft.name}</p>
-                </div>
+              ) : (
+                 // Fallback for missing image
+                 <div className="w-full h-full flex items-center justify-center bg-stone-100 dark:bg-stone-900">
+                    <span className="text-stone-300 text-[10px] font-bold">NO IMAGE</span>
+                 </div>
+              )}
+
+              {/* Gradient & Text Overlay */}
+              <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <p className="text-white text-[10px] font-bold truncate tracking-wide">
+                  {nft.name || "Untitled"}
+                </p>
+                <p className="text-stone-300 text-[9px] truncate opacity-80">
+                  {nft.collection || "Unknown Collection"}
+                </p>
+              </div>
             </div>
-            ))}
-        </div>
-      )}
-      
-      {!loading && displayNfts.length === 0 && (
-         <p className="text-center text-sm text-stone-400">No images found.</p>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
