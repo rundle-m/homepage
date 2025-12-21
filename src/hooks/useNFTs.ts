@@ -9,7 +9,10 @@ interface AlchemyNFT {
   contract: {
     address: string;
     name?: string;
-    openSeaMetadata?: { floorPrice?: number; };
+    openSeaMetadata?: { 
+        floorPrice?: number; 
+        collectionName?: string; // 👈 We need this field!
+    };
   };
   image?: { cachedUrl?: string; thumbnailUrl?: string; originalUrl?: string; };
   collection?: { name?: string; };
@@ -18,7 +21,7 @@ interface AlchemyNFT {
 interface AlchemyResponse {
   ownedNfts: AlchemyNFT[];
   total?: number;
-  error?: string; // Add error type
+  error?: string;
 }
 
 function transformNFT(nft: AlchemyNFT): NFT {
@@ -26,10 +29,26 @@ function transformNFT(nft: AlchemyNFT): NFT {
   const floorPriceStr = floorPrice ? `${floorPrice.toFixed(3)} ETH` : "N/A";
   const img = nft.image?.cachedUrl || nft.image?.thumbnailUrl || nft.image?.originalUrl || "";
 
+  // 🧠 SMARTER NAMING LOGIC
+  // 1. Try to find the Collection Name from OpenSea data first (most accurate)
+  // 2. Fallback to Alchemy's collection name
+  // 3. Fallback to Contract name
+  const collectionName = 
+      nft.contract.openSeaMetadata?.collectionName || 
+      nft.collection?.name || 
+      nft.contract.name || 
+      "Unknown Collection";
+
+  // If the NFT has no name (common), call it "Collection #ID"
+  let name = nft.name;
+  if (!name) {
+      name = `${collectionName} #${nft.tokenId}`;
+  }
+
   return {
     id: `${nft.contract.address}-${nft.tokenId}`,
-    name: nft.name || `#${nft.tokenId}`,
-    collection: nft.collection?.name || nft.contract.name || "Unknown",
+    name: name,
+    collection: collectionName,
     image_url: img,
   };
 }
@@ -40,10 +59,7 @@ export function useNFTs(walletAddress: string | undefined, fetchAll: boolean = f
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If no wallet is provided, don't even try.
-    if (!walletAddress) {
-        return;
-    }
+    if (!walletAddress) return;
 
     const loadNFTs = async () => {
       setIsLoading(true);
@@ -54,28 +70,21 @@ export function useNFTs(walletAddress: string | undefined, fetchAll: boolean = f
            ? `/api/alchemy/nfts?wallet=${walletAddress}&all=true`
            : `/api/alchemy/nfts?wallet=${walletAddress}`;
 
-        console.log(`🔍 Hook fetching: ${url}`); // Debug Log
-
         const res = await fetch(url);
         
-        // If server fails (400/500), try to read the error text
         if (!res.ok) {
             const errorText = await res.text();
             try {
-                // Try parsing as JSON first
                 const errorJson = JSON.parse(errorText);
                 throw new Error(errorJson.error || `Server Error ${res.status}`);
             } catch {
-                // If not JSON, use the raw text
                 throw new Error(`API Error ${res.status}: ${errorText}`);
             }
         }
         
         const data: AlchemyResponse = await res.json();
         
-        if (data.error) {
-            throw new Error(data.error);
-        }
+        if (data.error) throw new Error(data.error);
 
         const cleanNFTs = (data.ownedNfts || []).map(transformNFT);
         setNfts(cleanNFTs);
