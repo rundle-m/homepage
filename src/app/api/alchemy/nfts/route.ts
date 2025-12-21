@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Force this route to be dynamic so it doesn't cache old errors
 export const dynamic = 'force-dynamic';
 
 const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY;
@@ -13,22 +12,49 @@ const ALCHEMY_ENDPOINTS: Record<string, string> = {
 };
 
 async function fetchChainNFTs(endpoint: string, wallet: string, chain: string) {
-  try {
-      // Fetch only 1 page (100 items) to keep it fast
-      const url = `${endpoint}/getNFTsForOwner?owner=${wallet}&withMetadata=true&pageSize=100`;
-      
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
-      
-      if (!response.ok) {
-          console.error(`Error on ${chain}: ${response.status}`);
-          return [];
-      }
+  let allChainNfts: any[] = [];
+  let pageKey = "";
+  let keepFetching = true;
+  
+  // Safety Limit: Stop after 5 pages (500 NFTs per chain) to prevent freezing
+  let loopCount = 0;
+  const MAX_LOOPS = 5; 
 
-      const data = await response.json();
-      return data.ownedNfts || [];
+  try {
+      while (keepFetching && loopCount < MAX_LOOPS) {
+          // Construct URL with pageKey if it exists
+          let url = `${endpoint}/getNFTsForOwner?owner=${wallet}&withMetadata=true&pageSize=100`;
+          if (pageKey) {
+              url += `&pageKey=${pageKey}`;
+          }
+
+          const response = await fetch(url, { headers: { Accept: "application/json" } });
+          
+          if (!response.ok) {
+              console.error(`Error on ${chain}: ${response.status}`);
+              keepFetching = false;
+              break;
+          }
+
+          const data = await response.json();
+          const nfts = data.ownedNfts || [];
+          
+          // Add this page's NFTs to our master list
+          allChainNfts = [...allChainNfts, ...nfts];
+
+          // Check if there is another page
+          if (data.pageKey) {
+              pageKey = data.pageKey;
+              loopCount++;
+          } else {
+              keepFetching = false; // No more pages, we are done!
+          }
+      }
+      
+      return allChainNfts;
   } catch (err) {
       console.error(`Failed to fetch ${chain}`, err);
-      return [];
+      return allChainNfts; // Return whatever we managed to find
   }
 }
 
@@ -38,34 +64,24 @@ export async function GET(request: NextRequest) {
     const wallet = searchParams.get("wallet");
     const fetchAll = searchParams.get("all") === "true";
 
-    // 1. Debugging Checks (These will show up in the frontend error now)
-    if (!wallet) {
-        return NextResponse.json({ error: "Missing Wallet Address" }, { status: 400 });
-    }
-    if (!ALCHEMY_API_KEY) {
-        // 🚨 This is likely the issue!
-        return NextResponse.json({ error: "Configuration Error: ALCHEMY_API_KEY is missing on Vercel." }, { status: 500 });
-    }
+    if (!wallet) return NextResponse.json({ error: "Missing Wallet" }, { status: 400 });
+    if (!ALCHEMY_API_KEY) return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
 
     const chains = ["base", "ethereum", "zora"];
 
-    // 2. Fetch Data
+    // Fetch all chains in parallel
     const results = await Promise.all(
        chains.map(chain => fetchChainNFTs(ALCHEMY_ENDPOINTS[chain], wallet, chain))
     );
 
     const allNfts = results.flat();
     
-    // 3. Return Data
     return NextResponse.json({ 
         ownedNfts: fetchAll ? allNfts : allNfts.slice(0, 6), 
         total: allNfts.length 
     });
 
   } catch (error: any) {
-    // Catch-all for code crashes
-    return NextResponse.json({ 
-        error: `Server Crash: ${error.message || "Unknown Error"}` 
-    }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
