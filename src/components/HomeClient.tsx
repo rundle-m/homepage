@@ -4,12 +4,19 @@ import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LandingPage } from './LandingPage';
 import { Grid } from './Grid';
-import { UserHeader } from './UserHeader'; // We just created this!
 import { ThemePicker } from './ThemePicker';
 import { NFTPicker } from './NFTPicker'; 
-import type { Profile } from '../types/types'; 
 
-// Simple Loading Spinner
+// THEME MAP (Restored for the banner background)
+const THEME_GRADIENTS: Record<string, string> = {
+  violet: 'from-violet-600 to-indigo-600',
+  blue: 'from-blue-500 to-cyan-500',
+  emerald: 'from-emerald-500 to-teal-500',
+  rose: 'from-rose-500 to-pink-500',
+  amber: 'from-amber-500 to-orange-500',
+  stone: 'from-stone-600 to-stone-800',
+};
+
 function Loading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-stone-950">
@@ -19,10 +26,6 @@ function Loading() {
 }
 
 export default function HomeClient() {
-  return <AppContent />;
-}
-
-function AppContent() {
   const { 
     profile, remoteUser, isLoading, isOwner, 
     login, createAccount, updateProfile 
@@ -31,25 +34,23 @@ function AppContent() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isPickingNFTs, setIsPickingNFTs] = useState(false);
 
-  // 1. Loading State
+  // 1. Loading
   if (isLoading) return <Loading />;
 
-  // 2. Landing Page
-  // Show if: No profile loaded AND user isn't logged in
+  // 2. Landing Page (Not logged in, no profile loaded)
   if (!profile && !remoteUser) {
      return <LandingPage onLogin={login} />;
   }
 
-  // 3. Create Account
-  // Show if: User logged in, but has no profile yet
+  // 3. Create Account (Logged in, but no profile yet)
   if (!profile && remoteUser) {
      return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-           <h2 className="text-2xl font-bold mb-2">Welcome, {remoteUser.username}!</h2>
-           <p className="text-stone-500 mb-6">Let's set up your gallery.</p>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+           <h2 className="text-3xl font-bold mb-2">Welcome, {remoteUser.username}!</h2>
+           <p className="text-stone-500 mb-8">Let's set up your Onchain Gallery.</p>
            <button 
              onClick={createAccount}
-             className="bg-violet-600 text-white px-8 py-3 rounded-full font-bold shadow-lg"
+             className="bg-violet-600 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:scale-105 transition"
            >
              Create Profile
            </button>
@@ -57,28 +58,78 @@ function AppContent() {
      );
   }
 
-  // 4. Main Profile View (If we have a profile)
+  // 4. Main Profile View
   if (profile) {
-    return (
-      <div className={`min-h-screen pb-20 bg-white dark:bg-stone-950 text-stone-900 dark:text-white theme-${profile.theme_color || 'violet'}`}>
-         
-         {/* HEADER SECTION */}
-         <UserHeader 
-            profile={profile}
-            isOwner={isOwner}
-            onEditProfile={() => setIsEditingProfile(true)}
-         />
+    const themeGradient = THEME_GRADIENTS[profile.theme_color || 'violet'] || THEME_GRADIENTS.violet;
+    
+    // SHARE LOGIC (Restored & Fixed)
+    const handleShare = () => {
+      // Logic: Use current URL + FID
+      const baseUrl = window.location.origin;
+      const shareUrl = `${baseUrl}?fid=${profile.fid}`;
+      
+      const text = `Check out my Onchain Home! 🏠`;
+      // Open Warpcast Composer
+      const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
+      window.open(warpcastUrl, '_blank');
+    };
 
-         {/* SHOWCASE SECTION */}
-         <div className="mt-8">
-            <div className="px-6 flex justify-between items-end mb-4">
-               <h3 className="font-bold text-lg">Showcase</h3>
+    return (
+      <div className={`min-h-screen pb-32 bg-white dark:bg-stone-950 text-stone-900 dark:text-white theme-${profile.theme_color || 'violet'}`}>
+         
+         {/* --- BANNER HEADER (Restored) --- */}
+         <div className="relative">
+             <div className={`h-48 w-full overflow-hidden relative`}>
+                <div className={`absolute inset-0 bg-gradient-to-r ${themeGradient}`} />
+                {profile.banner_url && (
+                  <img src={profile.banner_url} alt="Banner" className="absolute inset-0 w-full h-full object-cover opacity-90" />
+                )}
+             </div>
+             
+             {/* Edit Theme Button (Top Right) */}
+             {isOwner && (
+                <button 
+                   onClick={() => setIsEditingProfile(true)}
+                   className="absolute top-4 right-4 bg-black/20 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-bold hover:bg-black/40 transition"
+                >
+                   Edit Theme
+                </button>
+             )}
+         </div>
+
+         {/* --- PROFILE INFO --- */}
+         <div className="px-6 relative z-10">
+             <div className="-mt-16 mb-4">
+               <div className="inline-block p-1.5 bg-white dark:bg-stone-950 rounded-full">
+                  <img 
+                    src={profile.pfp_url || "https://via.placeholder.com/100"} 
+                    alt={profile.username}
+                    className="w-32 h-32 rounded-full object-cover bg-stone-100 border-4 border-white dark:border-stone-900"
+                  />
+               </div>
+             </div>
+             
+             <div className="mb-8">
+               <h1 className="text-3xl font-black mb-1">{profile.display_name}</h1>
+               <p className="text-stone-500 font-medium">@{profile.username}</p>
+               {profile.bio && (
+                  <p className="mt-4 text-stone-600 dark:text-stone-300 leading-relaxed max-w-lg">
+                    {profile.bio}
+                  </p>
+               )}
+             </div>
+         </div>
+
+         {/* --- SHOWCASE GRID --- */}
+         <div className="mt-2">
+            <div className="px-6 flex justify-between items-end mb-6">
+               <h3 className="font-bold text-xl">Showcase</h3>
                {isOwner && (
                  <button 
                    onClick={() => setIsPickingNFTs(true)}
-                   className="text-xs font-bold text-violet-600 bg-violet-50 dark:bg-violet-900/30 px-3 py-1.5 rounded-lg"
+                   className="text-xs font-bold text-violet-600 bg-violet-50 dark:bg-violet-900/30 px-4 py-2 rounded-xl hover:bg-violet-100 transition"
                  >
-                   + Edit
+                   + Add NFTs
                  </button>
                )}
             </div>
@@ -90,7 +141,30 @@ function AppContent() {
             />
          </div>
 
-         {/* MODALS */}
+         {/* --- FLOATING ACTION BAR (The "Nice" Feature) --- */}
+         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-2 py-2 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl border border-stone-200 dark:border-stone-800 rounded-full shadow-2xl shadow-stone-500/20">
+             <button 
+               onClick={handleShare}
+               className="flex items-center gap-2 px-6 py-3 bg-stone-900 dark:bg-white text-white dark:text-black rounded-full font-bold text-sm hover:scale-105 transition"
+             >
+               <span>Share Profile</span>
+               {/* Share Icon */}
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 9v8c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-8c0-1.1.9-2 2-2h4v2H6v8h12v-8h-4v-2h4c1.1 0 2 .9 2 2z"/></svg>
+             </button>
+             
+             {isOwner && (
+               <button 
+                 onClick={() => setIsEditingProfile(true)}
+                 className="p-3 bg-stone-100 dark:bg-stone-800 rounded-full text-stone-600 dark:text-stone-300 hover:bg-stone-200 transition"
+                 aria-label="Settings"
+               >
+                 {/* Pencil/Edit Icon */}
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+               </button>
+             )}
+         </div>
+
+         {/* --- MODALS --- */}
          
          {/* 1. Theme/Bio Editor */}
          {isEditingProfile && (
@@ -99,15 +173,12 @@ function AppContent() {
                   <h2 className="text-xl font-bold">Edit Profile</h2>
                   <button onClick={() => setIsEditingProfile(false)} className="font-bold text-stone-500">Done</button>
                </div>
-               <div className="p-6 space-y-6 overflow-y-auto flex-1">
-                  {/* Theme Picker Component */}
+               <div className="p-6 space-y-6 overflow-y-auto flex-1 pb-20">
                   <ThemePicker 
                     currentTheme={profile.theme_color || 'violet'}
                     currentBorder={profile.border_style || 'rounded-3xl'}
                     onUpdate={updateProfile}
                   />
-                  
-                  {/* Text Inputs */}
                   <div className="space-y-4">
                       <div>
                         <label className="text-xs font-bold text-stone-400 uppercase block mb-1">Display Name</label>
@@ -154,6 +225,5 @@ function AppContent() {
     );
   }
 
-  // Fallback
   return <Loading />;
 }
