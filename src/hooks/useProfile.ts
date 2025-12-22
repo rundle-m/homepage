@@ -13,7 +13,7 @@ export function useProfile() {
 
   const fetchProfile = async (fid: number) => {
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', fid).single();
+      const { data, error } = await supabase.from('profiles').select('*').eq('fid', fid).single();
       if (data) {
         setProfile({ ...data, fid: data.id });
       } else {
@@ -72,7 +72,7 @@ export function useProfile() {
       const context = await sdk.context;
       const fid = context?.user?.fid;
       
-      if (!fid) return alert("Please sign in to Farcaster first.");
+      if (!fid) return;
 
       const newProfile: Profile = {
           fid: fid,
@@ -89,7 +89,7 @@ export function useProfile() {
           dark_mode: false 
       };
 
-      const { error } = await supabase.from('profiles').insert([{ ...newProfile, id: fid }]);
+      const { error } = await supabase.from('profiles').insert([newProfile]);
       
       if (!error) {
         setProfile(newProfile);

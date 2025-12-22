@@ -16,6 +16,23 @@ export default function HomeClient() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isPickingNFTs, setIsPickingNFTs] = useState(false);
 
+  // --- 🔗 LINK HELPER FUNCTIONS (RESTORED) ---
+  const updateLink = (index: number, field: 'title' | 'url', value: string) => {
+    const newLinks = [...(profile?.custom_links || [])];
+    newLinks[index] = { ...newLinks[index], [field]: value };
+    updateProfile({ custom_links: newLinks });
+  };
+
+  const addLink = () => {
+    const newLinks = [...(profile?.custom_links || []), { title: '', url: '' }];
+    updateProfile({ custom_links: newLinks });
+  };
+
+  const removeLink = (index: number) => {
+    const newLinks = profile?.custom_links?.filter((_, i) => i !== index);
+    updateProfile({ custom_links: newLinks });
+  };
+
   // 1. LOADING
   if (isLoading) {
     return (
@@ -26,13 +43,11 @@ export default function HomeClient() {
   }
 
   // 2. LANDING PAGE
-  // Show if: No profile exists AND (User hasn't clicked connect OR we don't have user info)
   if (!profile && (!hasClickedConnect || !remoteUser)) {
     return <LandingPage onLogin={login} />;
   }
 
   // 3. CREATE PROFILE / WELCOME SCREEN
-  // Show if: Logged in (clicked connect) but doesn't have a profile in the DB yet
   if (!profile && remoteUser && hasClickedConnect) {
     return (
       <div className="relative flex flex-col items-center justify-center min-h-screen bg-stone-950 text-white p-6 text-center overflow-hidden">
@@ -93,20 +108,22 @@ export default function HomeClient() {
           {profile.bio && <p className="mt-4 text-stone-600 dark:text-stone-300 max-w-sm">{profile.bio}</p>}
         </div>
 
-        {/* Links Section */}
-        {profile.custom_links && profile.custom_links.length > 0 && (
-          <div className="mt-10 px-6">
-            <h3 className="font-black uppercase tracking-tighter text-stone-400 text-xs mb-4">Your Projects</h3>
+        {/* --- YOUR PROJECTS SECTION --- */}
+        <div className="mt-10 px-6">
+          <h3 className="font-black uppercase tracking-tighter text-stone-400 text-xs mb-4">Your Projects</h3>
+          {profile.custom_links && profile.custom_links.length > 0 ? (
             <div className="grid gap-3">
               {profile.custom_links.map((link: any, i: number) => (
                 <a key={i} href={link.url} target="_blank" className="p-4 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 flex justify-between items-center group">
-                  <span className="font-bold text-sm tracking-tight">{link.title}</span>
+                  <span className="font-bold text-sm tracking-tight">{link.title || "Untitled Project"}</span>
                   <span className="text-stone-400 group-hover:translate-x-1 transition-transform">→</span>
                 </a>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-stone-400 text-xs italic">No projects added yet.</p>
+          )}
+        </div>
 
         {/* NFT Gallery */}
         <div className="mt-12">
@@ -140,18 +157,47 @@ export default function HomeClient() {
            )}
         </div>
 
-        {/* Simple Edit Modal (Included for completeness) */}
+        {/* Edit Modal with Projects Editor */}
         {isEditingProfile && (
            <div className="fixed inset-0 bg-white dark:bg-stone-950 z-[100] p-6 overflow-y-auto animate-in slide-in-from-bottom">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-black tracking-tighter uppercase">Settings</h2>
                 <button onClick={() => setIsEditingProfile(false)} className="text-violet-600 font-bold">Done</button>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <ThemePicker currentTheme={profile.theme_color} currentBorder={profile.border_style} onUpdate={updateProfile} />
+                
+                {/* --- PROJECTS EDITOR (RESTORED) --- */}
                 <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Your Projects</label>
+                    <button onClick={addLink} className="text-[10px] font-black uppercase text-violet-600">+ Add Link</button>
+                  </div>
+                  <div className="space-y-3">
+                    {profile.custom_links?.map((link: any, idx: number) => (
+                      <div key={idx} className="p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl relative border border-stone-200 dark:border-stone-700">
+                        <button onClick={() => removeLink(idx)} className="absolute top-2 right-2 text-stone-400 hover:text-red-500 text-sm">✕</button>
+                        <input 
+                          placeholder="Project Name" 
+                          value={link.title} 
+                          onChange={(e) => updateLink(idx, 'title', e.target.value)}
+                          className="w-full bg-transparent font-bold text-sm outline-none mb-1 text-stone-900 dark:text-white"
+                        />
+                        <input 
+                          placeholder="URL" 
+                          value={link.url} 
+                          onChange={(e) => updateLink(idx, 'url', e.target.value)}
+                          className="w-full bg-transparent text-xs text-stone-500 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Personal Info</label>
                   <input placeholder="Name" value={profile.display_name} onChange={e => updateProfile({display_name: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl outline-none" />
-                  <textarea placeholder="Bio" value={profile.bio} onChange={e => updateProfile({bio: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl h-32 outline-none" />
+                  <textarea placeholder="Bio" value={profile.bio} onChange={e => updateProfile({bio: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl h-32 outline-none resize-none" />
                 </div>
               </div>
            </div>
