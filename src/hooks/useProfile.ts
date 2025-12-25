@@ -110,9 +110,15 @@ export function useProfile() {
   };
 
   const isOwner = useMemo(() => {
-     if (!profile || !remoteUser) return false;
-     return String(profile.fid) === String(remoteUser.fid);
-  }, [profile, remoteUser]);
+     // If either is missing, you definitely aren't the owner
+     if (!profile?.fid || !remoteUser?.fid) return false;
+
+     // Convert both to Numbers to ensure 123 === "123"
+     const profileFid = Number(profile.fid);
+     const viewerFid = Number(remoteUser.fid);
+
+     return profileFid === viewerFid;
+  }, [profile?.fid, remoteUser?.fid]);
 
   return { 
     profile, 

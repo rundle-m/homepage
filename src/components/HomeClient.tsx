@@ -102,10 +102,23 @@ export default function HomeClient() {
         </div>
 
         {/* Profile Identity */}
-        <div className="mt-16 px-6 space-y-1">
-          <h1 className="text-3xl font-black tracking-tight">{profile.display_name}</h1>
-          <p className="text-stone-500 font-bold uppercase tracking-widest text-[10px]">@{profile.username}</p>
-          {profile.bio && <p className="mt-4 text-stone-600 dark:text-stone-300 max-w-sm">{profile.bio}</p>}
+        <div className="mt-16 px-6 flex justify-between items-start">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black tracking-tight">{profile.display_name}</h1>
+            <p className="text-stone-500 font-bold uppercase tracking-widest text-[10px]">@{profile.username}</p>
+            {profile.bio && <p className="mt-4 text-stone-600 dark:text-stone-300 max-w-sm">{profile.bio}</p>}
+          </div>
+
+          {/* 🖥️ DESKTOP EDIT BUTTON (Backup for the floating bar) */}
+          {isOwner && (
+            <button 
+              onClick={() => setIsEditingProfile(true)}
+              className="hidden md:flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 rounded-xl text-xs font-bold hover:bg-stone-200 transition-colors"
+            >
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+               Edit Profile
+            </button>
+          )}
         </div>
 
         {/* --- YOUR PROJECTS SECTION --- */}
