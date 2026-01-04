@@ -1,232 +1,132 @@
 "use client";
-
 import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { LandingPage } from './LandingPage';
 import { Grid } from './Grid';
-import { ThemePicker } from './ThemePicker';
 import { NFTPicker } from './NFTPicker'; 
 
 export default function HomeClient() {
-  const { 
-    profile, remoteUser, isLoading, isOwner, 
-    login, createAccount, updateProfile, hasClickedConnect 
-  } = useProfile();
+  const { profile, remoteUser, isLoading, isOwner, login, createAccount, updateProfile, hasClickedConnect } = useProfile();
+  const [isEdit, setIsEdit] = useState(false);
+  const [isNFT, setIsNFT] = useState(false);
+
+  if (isLoading) return <div className="min-h-screen bg-stone-950 flex items-center justify-center text-white">Loading...</div>;
+  if (!profile && (!hasClickedConnect || !remoteUser)) return <LandingPage onLogin={login} />;
   
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isPickingNFTs, setIsPickingNFTs] = useState(false);
-
-  // --- 🔗 LINK HELPER FUNCTIONS (RESTORED) ---
-  const updateLink = (index: number, field: 'title' | 'url', value: string) => {
-    const newLinks = [...(profile?.custom_links || [])];
-    newLinks[index] = { ...newLinks[index], [field]: value };
-    updateProfile({ custom_links: newLinks });
-  };
-
-  const addLink = () => {
-    const newLinks = [...(profile?.custom_links || []), { title: '', url: '' }];
-    updateProfile({ custom_links: newLinks });
-  };
-
-  const removeLink = (index: number) => {
-    const newLinks = profile?.custom_links?.filter((_, i) => i !== index);
-    updateProfile({ custom_links: newLinks });
-  };
-
-  // 1. LOADING
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // 2. LANDING PAGE
-  if (!profile && (!hasClickedConnect || !remoteUser)) {
-    return <LandingPage onLogin={login} />;
-  }
-
-  // 3. CREATE PROFILE / WELCOME SCREEN
   if (!profile && remoteUser && hasClickedConnect) {
     return (
-      <div className="relative flex flex-col items-center justify-center min-h-screen bg-stone-950 text-white p-6 text-center overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-600/10 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="relative z-10 max-w-md mx-auto space-y-6 animate-in fade-in zoom-in duration-700">
-           <div className="relative inline-block">
-              <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full blur opacity-50 animate-pulse"></div>
-              <img 
-                src={remoteUser.pfpUrl || ""} 
-                className="relative w-28 h-28 rounded-full border-4 border-stone-950 bg-stone-900 object-cover"
-                alt="Your PFP" 
-              />
-           </div>
-
-           <div className="space-y-2">
-             <h1 className="text-3xl font-black italic tracking-tighter uppercase">Welcome</h1>
-             <p className="text-violet-400 text-xl font-bold italic lowercase tracking-tight">@{remoteUser.username}</p>
-           </div>
-           
-           <p className="text-stone-400 text-lg leading-snug">
-             Ready to claim your spot on the network? Create your profile to start curating.
-           </p>
-           
-           <button 
-             onClick={createAccount}
-             className="w-full py-4 bg-white text-stone-950 rounded-2xl font-black text-xl uppercase tracking-tighter shadow-[0_0_30px_-5px_rgba(255,255,255,0.4)] hover:scale-[1.02] transition-transform active:scale-95"
-           >
-             Create My Home
-           </button>
-        </div>
+      <div className="min-h-screen bg-stone-950 text-white flex flex-col items-center justify-center p-10 text-center">
+        <img src={remoteUser.pfpUrl} className="w-24 h-24 rounded-full mb-4 border-4 border-violet-500" />
+        <h1 className="text-2xl font-bold mb-6">Welcome @{remoteUser.username}</h1>
+        <button onClick={createAccount} className="bg-white text-black px-8 py-3 rounded-full font-bold">Create Profile</button>
       </div>
     );
   }
 
-  // 4. MAIN PROFILE VIEW
   if (profile) {
     return (
-      <div className="min-h-screen bg-white dark:bg-stone-950 pb-32">
-        {/* Banner */}
-        <div className="h-48 bg-stone-100 dark:bg-stone-900 relative overflow-hidden">
-          {profile.banner_url ? (
-            <img src={profile.banner_url} className="w-full h-full object-cover" alt="banner" />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br from-stone-200 to-stone-300 dark:from-stone-800 dark:to-stone-900`} />
-          )}
-          
-          <div className="absolute -bottom-14 left-6 z-10">
-            <img src={profile.pfp_url || ""} className="w-28 h-28 rounded-3xl border-4 border-white dark:border-stone-950 bg-stone-200 object-cover" alt="pfp" />
-          </div>
+      <div className="min-h-screen bg-white dark:bg-stone-950 pb-40">
+        {/* BANNER */}
+        <div className="h-40 bg-gradient-to-r from-violet-600 to-indigo-600 relative">
+          {profile.banner_url && <img src={profile.banner_url} className="w-full h-full object-cover" />}
         </div>
 
-        {/* Profile Identity */}
-        <div className="mt-16 px-6 flex justify-between items-start">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black tracking-tight">{profile.display_name}</h1>
-            <p className="text-stone-500 font-bold uppercase tracking-widest text-[10px]">@{profile.username}</p>
-            {profile.bio && <p className="mt-4 text-stone-600 dark:text-stone-300 max-w-sm">{profile.bio}</p>}
+        {/* PROFILE HEADER - Fixed the "Cut Off" issue */}
+        <div className="px-6 relative z-20"> 
+          <div className="-mt-12 mb-4 relative">
+            <img src={profile.pfp_url} className="w-24 h-24 rounded-full border-4 border-white dark:border-stone-950 bg-stone-200 object-cover shadow-lg" />
           </div>
-
-          {/* 🖥️ DESKTOP EDIT BUTTON (Backup for the floating bar) */}
-          {isOwner && (
-            <button 
-              onClick={() => setIsEditingProfile(true)}
-              className="hidden md:flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 rounded-xl text-xs font-bold hover:bg-stone-200 transition-colors"
-            >
-               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-               Edit Profile
-            </button>
-          )}
-        </div>
-
-        {/* --- YOUR PROJECTS SECTION --- */}
-        <div className="mt-10 px-6">
-          <h3 className="font-black uppercase tracking-tighter text-stone-400 text-xs mb-4">Your Projects</h3>
-          {profile.custom_links && profile.custom_links.length > 0 ? (
-            <div className="grid gap-3">
-              {profile.custom_links.map((link: any, i: number) => (
-                <a key={i} href={link.url} target="_blank" className="p-4 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 flex justify-between items-center group">
-                  <span className="font-bold text-sm tracking-tight">{link.title || "Untitled Project"}</span>
-                  <span className="text-stone-400 group-hover:translate-x-1 transition-transform">→</span>
-                </a>
-              ))}
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-black">{profile.display_name}</h1>
+              <p className="text-stone-500 text-sm font-bold">@{profile.username}</p>
             </div>
-          ) : (
-            <p className="text-stone-400 text-xs italic">No projects added yet.</p>
-          )}
-        </div>
-
-        {/* NFT Gallery */}
-        <div className="mt-12">
-          <div className="px-6 flex justify-between items-center mb-6">
-            <h3 className="font-black uppercase tracking-tighter text-stone-400 text-xs">NFT Showcase</h3>
             {isOwner && (
-              <button onClick={() => setIsPickingNFTs(true)} className="text-[10px] font-black uppercase tracking-widest bg-violet-600 text-white px-3 py-1 rounded-full">
-                Edit
-              </button>
+              <button onClick={() => setIsEdit(true)} className="bg-stone-100 dark:bg-stone-800 px-4 py-2 rounded-xl text-xs font-bold">Edit Profile</button>
             )}
           </div>
-          <Grid nfts={profile.showcase_nfts || []} isOwner={isOwner} borderStyle={profile.border_style} />
+          {profile.bio && <p className="mt-4 text-sm text-stone-600 dark:text-stone-400 leading-relaxed max-w-sm">{profile.bio}</p>}
         </div>
 
-        {/* Floating Controls */}
+        {/* YOUR PROJECTS */}
+        <div className="mt-10 px-6">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-4">Your Projects</h3>
+          <div className="grid gap-3">
+            {profile.custom_links?.map((link: any, i: number) => (
+              <a key={i} href={link.url} target="_blank" className="p-4 bg-stone-50 dark:bg-stone-900 border rounded-2xl flex justify-between items-center group">
+                <span className="font-bold text-sm tracking-tight">{link.title}</span>
+                <span className="text-stone-300 group-hover:text-black transition-colors">→</span>
+              </a>
+            ))}
+            {isOwner && profile.custom_links?.length === 0 && (
+                <button onClick={() => setIsEdit(true)} className="p-4 border-2 border-dashed border-stone-200 rounded-2xl text-stone-400 text-xs font-bold">+ Add Project Links</button>
+            )}
+          </div>
+        </div>
+
+        {/* NFT GALLERY */}
+        <div className="mt-12 px-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-400">NFT Showcase</h3>
+            {isOwner && <button onClick={() => setIsNFT(true)} className="text-[10px] font-black bg-violet-600 text-white px-3 py-1 rounded-full uppercase">Edit Gallery</button>}
+          </div>
+          <Grid nfts={profile.showcase_nfts || []} isOwner={isOwner} />
+        </div>
+
+        {/* FLOATING ACTION BAR */}
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-1.5 bg-stone-950/90 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl z-50">
-           <button 
-             onClick={() => {
-                const shareUrl = `${window.location.origin}?fid=${profile.fid}`;
-                const text = `Check out my home!`;
-                window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`, '_blank');
-             }} 
-             className="px-6 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-tighter"
-           >
-             Share Profile
-           </button>
-           {isOwner && (
-             <button onClick={() => setIsEditingProfile(true)} className="p-3 bg-stone-800 rounded-full text-white">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-             </button>
-           )}
+           <button onClick={() => {
+              const shareUrl = `${window.location.origin}?fid=${profile.fid}`;
+              window.open(`https://warpcast.com/~/compose?text=Check out my home!&embeds[]=${encodeURIComponent(shareUrl)}`, '_blank');
+           }} className="px-8 py-3 bg-white text-black rounded-full font-black text-xs uppercase">Share Profile</button>
         </div>
 
-        {/* Edit Modal with Projects Editor */}
-        {isEditingProfile && (
-           <div className="fixed inset-0 bg-white dark:bg-stone-950 z-[100] p-6 overflow-y-auto animate-in slide-in-from-bottom">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-black tracking-tighter uppercase">Settings</h2>
-                <button onClick={() => setIsEditingProfile(false)} className="text-violet-600 font-bold">Done</button>
-              </div>
-              <div className="space-y-8">
-                <ThemePicker currentTheme={profile.theme_color} currentBorder={profile.border_style} onUpdate={updateProfile} />
-                
-                {/* --- PROJECTS EDITOR (RESTORED) --- */}
-                <div className="space-y-4">
+        {/* THE INTEGRATED EDITOR MODAL */}
+        {isEdit && (
+          <div className="fixed inset-0 bg-white dark:bg-stone-950 z-[100] p-6 overflow-y-auto animate-in slide-in-from-bottom duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-xl font-black uppercase tracking-tighter">Profile Settings</h2>
+              <button onClick={() => setIsEdit(false)} className="text-violet-600 font-bold">Done</button>
+            </div>
+            
+            <div className="space-y-8">
+               {/* Link Management Section */}
+               <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Your Projects</label>
-                    <button onClick={addLink} className="text-[10px] font-black uppercase text-violet-600">+ Add Link</button>
+                    <label className="text-[10px] font-black uppercase text-stone-400">Manage Links</label>
+                    <button onClick={() => updateProfile({ custom_links: [...(profile.custom_links || []), { title: '', url: '' }] })} className="text-[10px] font-black text-violet-600 uppercase">+ Add</button>
                   </div>
-                  <div className="space-y-3">
-                    {profile.custom_links?.map((link: any, idx: number) => (
-                      <div key={idx} className="p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl relative border border-stone-200 dark:border-stone-700">
-                        <button onClick={() => removeLink(idx)} className="absolute top-2 right-2 text-stone-400 hover:text-red-500 text-sm">✕</button>
-                        <input 
-                          placeholder="Project Name" 
-                          value={link.title} 
-                          onChange={(e) => updateLink(idx, 'title', e.target.value)}
-                          className="w-full bg-transparent font-bold text-sm outline-none mb-1 text-stone-900 dark:text-white"
-                        />
-                        <input 
-                          placeholder="URL" 
-                          value={link.url} 
-                          onChange={(e) => updateLink(idx, 'url', e.target.value)}
-                          className="w-full bg-transparent text-xs text-stone-500 outline-none"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                  {profile.custom_links?.map((link: any, idx: number) => (
+                    <div key={idx} className="p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl relative">
+                       <input placeholder="Title" value={link.title} className="w-full bg-transparent font-bold mb-1 outline-none" onChange={(e) => {
+                          const nl = [...profile.custom_links]; nl[idx].title = e.target.value; updateProfile({ custom_links: nl });
+                       }} />
+                       <input placeholder="URL" value={link.url} className="w-full bg-transparent text-xs text-stone-500 outline-none" onChange={(e) => {
+                          const nl = [...profile.custom_links]; nl[idx].url = e.target.value; updateProfile({ custom_links: nl });
+                       }} />
+                       <button onClick={() => {
+                          const nl = profile.custom_links.filter((_:any, i:number) => i !== idx); updateProfile({ custom_links: nl });
+                       }} className="absolute top-2 right-2 text-stone-400">✕</button>
+                    </div>
+                  ))}
+               </div>
 
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Personal Info</label>
-                  <input placeholder="Name" value={profile.display_name} onChange={e => updateProfile({display_name: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl outline-none" />
+               {/* Bio/Info Section */}
+               <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-stone-400">Info</label>
+                  <input placeholder="Display Name" value={profile.display_name} onChange={e => updateProfile({display_name: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl outline-none" />
                   <textarea placeholder="Bio" value={profile.bio} onChange={e => updateProfile({bio: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl h-32 outline-none resize-none" />
-                </div>
-              </div>
-           </div>
+                  <input placeholder="Banner URL" value={profile.banner_url || ''} onChange={e => updateProfile({banner_url: e.target.value})} className="w-full p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl outline-none" />
+               </div>
+            </div>
+          </div>
         )}
 
-        {isPickingNFTs && (
-          <NFTPicker 
-            walletAddress={profile.custody_address} 
-            currentSelection={profile.showcase_nfts} 
-            onClose={() => setIsPickingNFTs(false)} 
-            onUpdate={nfts => updateProfile({showcase_nfts: nfts})} 
-          />
+        {isNFT && (
+          <NFTPicker walletAddress={profile.custody_address} currentSelection={profile.showcase_nfts} onClose={() => setIsNFT(false)} onUpdate={nfts => updateProfile({showcase_nfts: nfts})} />
         )}
       </div>
     );
   }
-
   return null;
 }
